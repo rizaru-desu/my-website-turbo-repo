@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "pnpm --parallel --filter ./apps/backend --filter ./apps/frontend/admin --filter ./apps/frontend/public run dev",
+    "dev:api": "pnpm --filter ./apps/backend run dev",
+    "dev:web": "pnpm --parallel --filter ./apps/frontend/admin --filter ./apps/frontend/public run dev",
+    "dev:turbo": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
