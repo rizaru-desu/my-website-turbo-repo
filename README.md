@@ -79,7 +79,7 @@ cd frontend && npm install && npm run build
 ---
 
 <div align="center">
-  <img src="[https://img.shields.io/badge/STB_COMPATIBLE-YES-39FF14?style=flat-square](https://img.shields.io/badge/STB_COMPATIBLE-YES-39FF14?style=flat-square)" alt="Compatible" />
-  <img src="[https://img.shields.io/badge/OOM_PROTECTED-TRUE-39FF14?style=flat-square](https://img.shields.io/badge/OOM_PROTECTED-TRUE-39FF14?style=flat-square)" alt="OOM Protected" />
+  <img src="https://img.shields.io/badge/STB_COMPATIBLE-YES-39FF14?style=flat-square" alt="Compatible" />
+  <img src="https://img.shields.io/badge/OOM_PROTECTED-TRUE-39FF14?style=flat-square" alt="OOM Protected" />
   <p><i>"Efisiensi adalah kunci dari kedaulatan digital di Home Lab."</i></p>
 </div>
