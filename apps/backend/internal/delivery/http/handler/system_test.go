@@ -50,7 +50,7 @@ func TestHealthReturnsOK(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 
-	var response healthResponse
+	var response HealthResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("expected valid JSON response, got error: %v", err)
 	}

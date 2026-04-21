@@ -67,8 +67,8 @@ func TestSwaggerRoutesAreAvailableInDevelopment(t *testing.T) {
 		t.Fatalf("expected swagger spec to be valid JSON, got error: %v", err)
 	}
 
-	if spec["openapi"] != "3.0.3" {
-		t.Fatalf("expected OpenAPI 3.0.3, got %v", spec["openapi"])
+	if spec["swagger"] != "2.0" {
+		t.Fatalf("expected Swagger 2.0, got %v", spec["swagger"])
 	}
 }
 

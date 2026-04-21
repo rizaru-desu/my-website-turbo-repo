@@ -1,0 +1,144 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Lightweight backend service for the portfolio platform and admin workspace.",
+        "title": "Portfolio Lightweight API",
+        "contact": {},
+        "version": "1.0.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/": {
+            "get": {
+                "description": "Returns a minimal root status response without exposing implementation details.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get root status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.RootResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/health": {
+            "get": {
+                "description": "Returns application and host health information.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get service health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.HealthResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "alerts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/system.HealthAlert"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "system_health": {
+                    "$ref": "#/definitions/system.SystemHealth"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.RootResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "system.HealthAlert": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "resource": {
+                    "type": "string"
+                }
+            }
+        },
+        "system.ResourceUsage": {
+            "type": "object",
+            "properties": {
+                "percentage": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "string"
+                },
+                "used": {
+                    "type": "string"
+                }
+            }
+        },
+        "system.StorageUsage": {
+            "type": "object",
+            "properties": {
+                "free": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "string"
+                },
+                "used": {
+                    "type": "string"
+                }
+            }
+        },
+        "system.SystemHealth": {
+            "type": "object",
+            "properties": {
+                "cpu_usage": {
+                    "type": "string"
+                },
+                "memory": {
+                    "$ref": "#/definitions/system.ResourceUsage"
+                },
+                "storage": {
+                    "$ref": "#/definitions/system.StorageUsage"
+                },
+                "uptime": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

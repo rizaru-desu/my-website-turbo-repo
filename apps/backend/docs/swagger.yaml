@@ -1,0 +1,94 @@
+basePath: /
+definitions:
+  handler.HealthResponse:
+    properties:
+      alerts:
+        items:
+          $ref: '#/definitions/system.HealthAlert'
+        type: array
+      status:
+        type: string
+      system_health:
+        $ref: '#/definitions/system.SystemHealth'
+      version:
+        type: string
+    type: object
+  handler.RootResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  system.HealthAlert:
+    properties:
+      level:
+        type: string
+      message:
+        type: string
+      resource:
+        type: string
+    type: object
+  system.ResourceUsage:
+    properties:
+      percentage:
+        type: string
+      total:
+        type: string
+      used:
+        type: string
+    type: object
+  system.StorageUsage:
+    properties:
+      free:
+        type: string
+      percentage:
+        type: string
+      total:
+        type: string
+      used:
+        type: string
+    type: object
+  system.SystemHealth:
+    properties:
+      cpu_usage:
+        type: string
+      memory:
+        $ref: '#/definitions/system.ResourceUsage'
+      storage:
+        $ref: '#/definitions/system.StorageUsage'
+      uptime:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Lightweight backend service for the portfolio platform and admin workspace.
+  title: Portfolio Lightweight API
+  version: 1.0.0
+paths:
+  /:
+    get:
+      description: Returns a minimal root status response without exposing implementation
+        details.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.RootResponse'
+      summary: Get root status
+      tags:
+      - system
+  /api/v1/health:
+    get:
+      description: Returns application and host health information.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.HealthResponse'
+      summary: Get service health
+      tags:
+      - system
+swagger: "2.0"

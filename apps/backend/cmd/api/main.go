@@ -20,6 +20,10 @@ import (
 
 var version = "1.0.0"
 
+// @title			Portfolio Lightweight API
+// @version		1.0.0
+// @description	Lightweight backend service for the portfolio platform and admin workspace.
+// @BasePath		/
 func main() {
 	if err := config.LoadAppEnv(); err != nil {
 		log.Fatal("Gagal memuat konfigurasi environment:", err)
@@ -49,7 +53,7 @@ func newHandler() http.Handler {
 	systemHandler := httpHandler.NewSystemHandler(version, environment, systemusecase.NewHealthService(time.Now(), appStoragePath(), metricsProvider))
 	systemHandler.RegisterRoutes(mux)
 	if isDevelopmentEnvironment(environment) {
-		httpHandler.NewSwaggerHandler(version).RegisterRoutes(mux)
+		httpHandler.NewSwaggerHandler().RegisterRoutes(mux)
 	}
 
 	securityConfig := config.SecurityConfigForEnvironment(environment)

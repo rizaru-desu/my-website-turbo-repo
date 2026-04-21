@@ -107,6 +107,8 @@ To ensure the platform remains secure despite running on low-resource hardware, 
 - **Broken Access Control:** Strict middleware-level authorization to ensure users can only access and modify their own data.
 - **Cryptographic Failures:** Utilizing Argon2 or BCrypt for secure password hashing and enforcing TLS for data in transit.
 - **Security Misconfiguration:** Implementing lightweight HTTP middleware for secure headers and strict CORS without adding heavy framework overhead.
+- **Information Disclosure Reduction:** The API root only returns a generic health signal (`{"status":"ok"}`) and does not expose version, environment, endpoint inventory, timestamps, or deployment metadata.
+- **Development-Only API Docs:** Swagger UI is registered only when `APP_ENV=development`, keeping interactive documentation unavailable in staging and production.
 
 ### 2. 🎨 Frontend Security (OWASP ASVS Standard)
 
@@ -139,6 +141,21 @@ The active middleware currently includes:
 - `Strict-Transport-Security` only for HTTPS requests or HTTPS-aware proxy requests
 - an `Access-Control-Allow-Origin` whitelist for allowed local frontend origins
 
+Runtime routes:
+
+- `GET /` returns only `{"status":"ok"}` to avoid exposing implementation details.
+- `GET /api/v1/health` returns the backend health snapshot for observability.
+- `GET /swagger/` and `GET /swagger/doc.json` are available only in `APP_ENV=development`.
+
+Swagger documentation is generated from Go annotations with `swaggo/swag`, not maintained as a hand-written JSON map. After adding or changing an API handler annotation, regenerate the docs with:
+
+```bash
+cd apps/backend
+pnpm run docs:generate
+```
+
+Generated docs are stored in `apps/backend/docs` and served by `swaggo/http-swagger` only when the app runs in development mode.
+
 ## 🗄️ `>_ BACKEND_DATABASE_MIGRATIONS`
 
 The backend uses Ent for typed PostgreSQL access, but automatic schema migration is disabled by default. Keep `DB_AUTO_MIGRATE=false` for staging and production so database changes are applied through reviewed versioned SQL files.
@@ -166,6 +183,8 @@ pnpm run migrate:apply
 ```
 
 `migrate:diff` uses `docker://postgres/15/dev?search_path=public` as the default dev database. Override it with `ATLAS_DEV_URL` if Docker is unavailable or if you prefer a local scratch database.
+
+When `DB_AUTO_MIGRATE=true` is used in development, the backend runs a small compatibility guard before Ent migration. It normalizes legacy `"profileContent"."socialLinks"` and `"profileContent"."stats"` values to valid `jsonb` defaults when old text data is empty, malformed, or has the wrong JSON shape. This prevents local startup failures such as PostgreSQL `22P02 invalid input syntax for type json` while preserving valid JSON values.
 
 Backend verification can be run with:
 

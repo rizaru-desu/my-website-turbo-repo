@@ -7,6 +7,7 @@
     "build": "sh ./scripts/build.sh",
     "build:linux": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 sh ./scripts/build.sh",
     "build:linux:arm64": "CGO_ENABLED=0 GOOS=linux GOARCH=arm64 sh ./scripts/build.sh",
+    "docs:generate": "go run github.com/swaggo/swag/cmd/swag init -d cmd/api,internal/delivery/http/handler,internal/usecase/system -g main.go -o docs --parseInternal",
     "ent:generate": "go generate ./internal/infrastructure/persistence/ent",
     "migrate:diff": "sh ./scripts/migrate-diff.sh",
     "migrate:apply": "sh ./scripts/migrate-apply.sh",
