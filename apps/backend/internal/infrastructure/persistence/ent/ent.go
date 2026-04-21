@@ -3,7 +3,24 @@
 package ent
 
 import (
+	"api/internal/infrastructure/persistence/ent/account"
+	"api/internal/infrastructure/persistence/ent/blogcomment"
+	"api/internal/infrastructure/persistence/ent/blogpost"
+	"api/internal/infrastructure/persistence/ent/certificate"
+	"api/internal/infrastructure/persistence/ent/cvdownloadlog"
+	"api/internal/infrastructure/persistence/ent/education"
+	"api/internal/infrastructure/persistence/ent/experience"
+	"api/internal/infrastructure/persistence/ent/message"
+	"api/internal/infrastructure/persistence/ent/profilecontent"
+	"api/internal/infrastructure/persistence/ent/project"
+	"api/internal/infrastructure/persistence/ent/resumeasset"
+	"api/internal/infrastructure/persistence/ent/session"
+	"api/internal/infrastructure/persistence/ent/skill"
+	"api/internal/infrastructure/persistence/ent/testimonial"
+	"api/internal/infrastructure/persistence/ent/twofactor"
 	"api/internal/infrastructure/persistence/ent/user"
+	"api/internal/infrastructure/persistence/ent/verification"
+	"api/internal/infrastructure/persistence/ent/visitorlog"
 	"context"
 	"errors"
 	"fmt"
@@ -73,7 +90,24 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			user.Table: user.ValidColumn,
+			account.Table:        account.ValidColumn,
+			blogcomment.Table:    blogcomment.ValidColumn,
+			blogpost.Table:       blogpost.ValidColumn,
+			cvdownloadlog.Table:  cvdownloadlog.ValidColumn,
+			certificate.Table:    certificate.ValidColumn,
+			education.Table:      education.ValidColumn,
+			experience.Table:     experience.ValidColumn,
+			message.Table:        message.ValidColumn,
+			profilecontent.Table: profilecontent.ValidColumn,
+			project.Table:        project.ValidColumn,
+			resumeasset.Table:    resumeasset.ValidColumn,
+			session.Table:        session.ValidColumn,
+			skill.Table:          skill.ValidColumn,
+			testimonial.Table:    testimonial.ValidColumn,
+			twofactor.Table:      twofactor.ValidColumn,
+			user.Table:           user.ValidColumn,
+			verification.Table:   verification.ValidColumn,
+			visitorlog.Table:     visitorlog.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

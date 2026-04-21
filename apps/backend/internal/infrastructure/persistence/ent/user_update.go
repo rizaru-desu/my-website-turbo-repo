@@ -3,7 +3,12 @@
 package ent
 
 import (
+	"api/internal/infrastructure/persistence/ent/account"
+	"api/internal/infrastructure/persistence/ent/blogcomment"
+	"api/internal/infrastructure/persistence/ent/blogpost"
 	"api/internal/infrastructure/persistence/ent/predicate"
+	"api/internal/infrastructure/persistence/ent/session"
+	"api/internal/infrastructure/persistence/ent/twofactor"
 	"api/internal/infrastructure/persistence/ent/user"
 	"context"
 	"errors"
@@ -28,20 +33,6 @@ func (_u *UserUpdate) Where(ps ...predicate.User) *UserUpdate {
 	return _u
 }
 
-// SetEmail sets the "email" field.
-func (_u *UserUpdate) SetEmail(v string) *UserUpdate {
-	_u.mutation.SetEmail(v)
-	return _u
-}
-
-// SetNillableEmail sets the "email" field if the given value is not nil.
-func (_u *UserUpdate) SetNillableEmail(v *string) *UserUpdate {
-	if v != nil {
-		_u.SetEmail(*v)
-	}
-	return _u
-}
-
 // SetName sets the "name" field.
 func (_u *UserUpdate) SetName(v string) *UserUpdate {
 	_u.mutation.SetName(v)
@@ -56,23 +47,199 @@ func (_u *UserUpdate) SetNillableName(v *string) *UserUpdate {
 	return _u
 }
 
-// ClearName clears the value of the "name" field.
-func (_u *UserUpdate) ClearName() *UserUpdate {
-	_u.mutation.ClearName()
+// SetEmail sets the "email" field.
+func (_u *UserUpdate) SetEmail(v string) *UserUpdate {
+	_u.mutation.SetEmail(v)
 	return _u
 }
 
-// SetPasswordHash sets the "password_hash" field.
-func (_u *UserUpdate) SetPasswordHash(v string) *UserUpdate {
-	_u.mutation.SetPasswordHash(v)
-	return _u
-}
-
-// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
-func (_u *UserUpdate) SetNillablePasswordHash(v *string) *UserUpdate {
+// SetNillableEmail sets the "email" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableEmail(v *string) *UserUpdate {
 	if v != nil {
-		_u.SetPasswordHash(*v)
+		_u.SetEmail(*v)
 	}
+	return _u
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (_u *UserUpdate) SetEmailVerified(v bool) *UserUpdate {
+	_u.mutation.SetEmailVerified(v)
+	return _u
+}
+
+// SetNillableEmailVerified sets the "email_verified" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableEmailVerified(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetEmailVerified(*v)
+	}
+	return _u
+}
+
+// SetImage sets the "image" field.
+func (_u *UserUpdate) SetImage(v string) *UserUpdate {
+	_u.mutation.SetImage(v)
+	return _u
+}
+
+// SetNillableImage sets the "image" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableImage(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetImage(*v)
+	}
+	return _u
+}
+
+// ClearImage clears the value of the "image" field.
+func (_u *UserUpdate) ClearImage() *UserUpdate {
+	_u.mutation.ClearImage()
+	return _u
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (_u *UserUpdate) SetCreatedAt(v time.Time) *UserUpdate {
+	_u.mutation.SetCreatedAt(v)
+	return _u
+}
+
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableCreatedAt(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetCreatedAt(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *UserUpdate) SetUpdatedAt(v time.Time) *UserUpdate {
+	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableUpdatedAt(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetUpdatedAt(*v)
+	}
+	return _u
+}
+
+// SetTwoFactorEnabled sets the "two_factor_enabled" field.
+func (_u *UserUpdate) SetTwoFactorEnabled(v bool) *UserUpdate {
+	_u.mutation.SetTwoFactorEnabled(v)
+	return _u
+}
+
+// SetNillableTwoFactorEnabled sets the "two_factor_enabled" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableTwoFactorEnabled(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetTwoFactorEnabled(*v)
+	}
+	return _u
+}
+
+// ClearTwoFactorEnabled clears the value of the "two_factor_enabled" field.
+func (_u *UserUpdate) ClearTwoFactorEnabled() *UserUpdate {
+	_u.mutation.ClearTwoFactorEnabled()
+	return _u
+}
+
+// SetBanExpires sets the "ban_expires" field.
+func (_u *UserUpdate) SetBanExpires(v time.Time) *UserUpdate {
+	_u.mutation.SetBanExpires(v)
+	return _u
+}
+
+// SetNillableBanExpires sets the "ban_expires" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBanExpires(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetBanExpires(*v)
+	}
+	return _u
+}
+
+// ClearBanExpires clears the value of the "ban_expires" field.
+func (_u *UserUpdate) ClearBanExpires() *UserUpdate {
+	_u.mutation.ClearBanExpires()
+	return _u
+}
+
+// SetBanReason sets the "ban_reason" field.
+func (_u *UserUpdate) SetBanReason(v string) *UserUpdate {
+	_u.mutation.SetBanReason(v)
+	return _u
+}
+
+// SetNillableBanReason sets the "ban_reason" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBanReason(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetBanReason(*v)
+	}
+	return _u
+}
+
+// ClearBanReason clears the value of the "ban_reason" field.
+func (_u *UserUpdate) ClearBanReason() *UserUpdate {
+	_u.mutation.ClearBanReason()
+	return _u
+}
+
+// SetBanned sets the "banned" field.
+func (_u *UserUpdate) SetBanned(v bool) *UserUpdate {
+	_u.mutation.SetBanned(v)
+	return _u
+}
+
+// SetNillableBanned sets the "banned" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBanned(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetBanned(*v)
+	}
+	return _u
+}
+
+// ClearBanned clears the value of the "banned" field.
+func (_u *UserUpdate) ClearBanned() *UserUpdate {
+	_u.mutation.ClearBanned()
+	return _u
+}
+
+// SetDisplayUsername sets the "display_username" field.
+func (_u *UserUpdate) SetDisplayUsername(v string) *UserUpdate {
+	_u.mutation.SetDisplayUsername(v)
+	return _u
+}
+
+// SetNillableDisplayUsername sets the "display_username" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableDisplayUsername(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetDisplayUsername(*v)
+	}
+	return _u
+}
+
+// ClearDisplayUsername clears the value of the "display_username" field.
+func (_u *UserUpdate) ClearDisplayUsername() *UserUpdate {
+	_u.mutation.ClearDisplayUsername()
+	return _u
+}
+
+// SetIsAnonymous sets the "is_anonymous" field.
+func (_u *UserUpdate) SetIsAnonymous(v bool) *UserUpdate {
+	_u.mutation.SetIsAnonymous(v)
+	return _u
+}
+
+// SetNillableIsAnonymous sets the "is_anonymous" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableIsAnonymous(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetIsAnonymous(*v)
+	}
+	return _u
+}
+
+// ClearIsAnonymous clears the value of the "is_anonymous" field.
+func (_u *UserUpdate) ClearIsAnonymous() *UserUpdate {
+	_u.mutation.ClearIsAnonymous()
 	return _u
 }
 
@@ -90,24 +257,105 @@ func (_u *UserUpdate) SetNillableRole(v *string) *UserUpdate {
 	return _u
 }
 
-// SetIsActive sets the "is_active" field.
-func (_u *UserUpdate) SetIsActive(v bool) *UserUpdate {
-	_u.mutation.SetIsActive(v)
+// ClearRole clears the value of the "role" field.
+func (_u *UserUpdate) ClearRole() *UserUpdate {
+	_u.mutation.ClearRole()
 	return _u
 }
 
-// SetNillableIsActive sets the "is_active" field if the given value is not nil.
-func (_u *UserUpdate) SetNillableIsActive(v *bool) *UserUpdate {
+// SetUsername sets the "username" field.
+func (_u *UserUpdate) SetUsername(v string) *UserUpdate {
+	_u.mutation.SetUsername(v)
+	return _u
+}
+
+// SetNillableUsername sets the "username" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableUsername(v *string) *UserUpdate {
 	if v != nil {
-		_u.SetIsActive(*v)
+		_u.SetUsername(*v)
 	}
 	return _u
 }
 
-// SetUpdatedAt sets the "updated_at" field.
-func (_u *UserUpdate) SetUpdatedAt(v time.Time) *UserUpdate {
-	_u.mutation.SetUpdatedAt(v)
+// ClearUsername clears the value of the "username" field.
+func (_u *UserUpdate) ClearUsername() *UserUpdate {
+	_u.mutation.ClearUsername()
 	return _u
+}
+
+// AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
+func (_u *UserUpdate) AddAccountIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddAccountIDs(ids...)
+	return _u
+}
+
+// AddAccounts adds the "accounts" edges to the Account entity.
+func (_u *UserUpdate) AddAccounts(v ...*Account) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountIDs(ids...)
+}
+
+// AddBlogPostIDs adds the "blog_posts" edge to the BlogPost entity by IDs.
+func (_u *UserUpdate) AddBlogPostIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddBlogPostIDs(ids...)
+	return _u
+}
+
+// AddBlogPosts adds the "blog_posts" edges to the BlogPost entity.
+func (_u *UserUpdate) AddBlogPosts(v ...*BlogPost) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddBlogPostIDs(ids...)
+}
+
+// AddReviewedCommentIDs adds the "reviewed_comments" edge to the BlogComment entity by IDs.
+func (_u *UserUpdate) AddReviewedCommentIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddReviewedCommentIDs(ids...)
+	return _u
+}
+
+// AddReviewedComments adds the "reviewed_comments" edges to the BlogComment entity.
+func (_u *UserUpdate) AddReviewedComments(v ...*BlogComment) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReviewedCommentIDs(ids...)
+}
+
+// AddSessionIDs adds the "sessions" edge to the Session entity by IDs.
+func (_u *UserUpdate) AddSessionIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddSessionIDs(ids...)
+	return _u
+}
+
+// AddSessions adds the "sessions" edges to the Session entity.
+func (_u *UserUpdate) AddSessions(v ...*Session) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionIDs(ids...)
+}
+
+// AddTwoFactorIDs adds the "two_factors" edge to the TwoFactor entity by IDs.
+func (_u *UserUpdate) AddTwoFactorIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddTwoFactorIDs(ids...)
+	return _u
+}
+
+// AddTwoFactors adds the "two_factors" edges to the TwoFactor entity.
+func (_u *UserUpdate) AddTwoFactors(v ...*TwoFactor) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTwoFactorIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -115,9 +363,113 @@ func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
 }
 
+// ClearAccounts clears all "accounts" edges to the Account entity.
+func (_u *UserUpdate) ClearAccounts() *UserUpdate {
+	_u.mutation.ClearAccounts()
+	return _u
+}
+
+// RemoveAccountIDs removes the "accounts" edge to Account entities by IDs.
+func (_u *UserUpdate) RemoveAccountIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveAccountIDs(ids...)
+	return _u
+}
+
+// RemoveAccounts removes "accounts" edges to Account entities.
+func (_u *UserUpdate) RemoveAccounts(v ...*Account) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountIDs(ids...)
+}
+
+// ClearBlogPosts clears all "blog_posts" edges to the BlogPost entity.
+func (_u *UserUpdate) ClearBlogPosts() *UserUpdate {
+	_u.mutation.ClearBlogPosts()
+	return _u
+}
+
+// RemoveBlogPostIDs removes the "blog_posts" edge to BlogPost entities by IDs.
+func (_u *UserUpdate) RemoveBlogPostIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveBlogPostIDs(ids...)
+	return _u
+}
+
+// RemoveBlogPosts removes "blog_posts" edges to BlogPost entities.
+func (_u *UserUpdate) RemoveBlogPosts(v ...*BlogPost) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveBlogPostIDs(ids...)
+}
+
+// ClearReviewedComments clears all "reviewed_comments" edges to the BlogComment entity.
+func (_u *UserUpdate) ClearReviewedComments() *UserUpdate {
+	_u.mutation.ClearReviewedComments()
+	return _u
+}
+
+// RemoveReviewedCommentIDs removes the "reviewed_comments" edge to BlogComment entities by IDs.
+func (_u *UserUpdate) RemoveReviewedCommentIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveReviewedCommentIDs(ids...)
+	return _u
+}
+
+// RemoveReviewedComments removes "reviewed_comments" edges to BlogComment entities.
+func (_u *UserUpdate) RemoveReviewedComments(v ...*BlogComment) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReviewedCommentIDs(ids...)
+}
+
+// ClearSessions clears all "sessions" edges to the Session entity.
+func (_u *UserUpdate) ClearSessions() *UserUpdate {
+	_u.mutation.ClearSessions()
+	return _u
+}
+
+// RemoveSessionIDs removes the "sessions" edge to Session entities by IDs.
+func (_u *UserUpdate) RemoveSessionIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveSessionIDs(ids...)
+	return _u
+}
+
+// RemoveSessions removes "sessions" edges to Session entities.
+func (_u *UserUpdate) RemoveSessions(v ...*Session) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearTwoFactors clears all "two_factors" edges to the TwoFactor entity.
+func (_u *UserUpdate) ClearTwoFactors() *UserUpdate {
+	_u.mutation.ClearTwoFactors()
+	return _u
+}
+
+// RemoveTwoFactorIDs removes the "two_factors" edge to TwoFactor entities by IDs.
+func (_u *UserUpdate) RemoveTwoFactorIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveTwoFactorIDs(ids...)
+	return _u
+}
+
+// RemoveTwoFactors removes "two_factors" edges to TwoFactor entities.
+func (_u *UserUpdate) RemoveTwoFactors(v ...*TwoFactor) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTwoFactorIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *UserUpdate) Save(ctx context.Context) (int, error) {
-	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -143,29 +495,16 @@ func (_u *UserUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (_u *UserUpdate) defaults() {
-	if _, ok := _u.mutation.UpdatedAt(); !ok {
-		v := user.UpdateDefaultUpdatedAt()
-		_u.mutation.SetUpdatedAt(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (_u *UserUpdate) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := user.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "User.name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Email(); ok {
 		if err := user.EmailValidator(v); err != nil {
 			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.PasswordHash(); ok {
-		if err := user.PasswordHashValidator(v); err != nil {
-			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`ent: validator failed for field "User.password_hash": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Role(); ok {
-		if err := user.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "User.role": %w`, err)}
 		}
 	}
 	return nil
@@ -175,7 +514,7 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeString))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -183,26 +522,299 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
-	if value, ok := _u.mutation.Email(); ok {
-		_spec.SetField(user.FieldEmail, field.TypeString, value)
-	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
 	}
-	if _u.mutation.NameCleared() {
-		_spec.ClearField(user.FieldName, field.TypeString)
+	if value, ok := _u.mutation.Email(); ok {
+		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.PasswordHash(); ok {
-		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	if value, ok := _u.mutation.EmailVerified(); ok {
+		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Image(); ok {
+		_spec.SetField(user.FieldImage, field.TypeString, value)
+	}
+	if _u.mutation.ImageCleared() {
+		_spec.ClearField(user.FieldImage, field.TypeString)
+	}
+	if value, ok := _u.mutation.CreatedAt(); ok {
+		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.TwoFactorEnabled(); ok {
+		_spec.SetField(user.FieldTwoFactorEnabled, field.TypeBool, value)
+	}
+	if _u.mutation.TwoFactorEnabledCleared() {
+		_spec.ClearField(user.FieldTwoFactorEnabled, field.TypeBool)
+	}
+	if value, ok := _u.mutation.BanExpires(); ok {
+		_spec.SetField(user.FieldBanExpires, field.TypeTime, value)
+	}
+	if _u.mutation.BanExpiresCleared() {
+		_spec.ClearField(user.FieldBanExpires, field.TypeTime)
+	}
+	if value, ok := _u.mutation.BanReason(); ok {
+		_spec.SetField(user.FieldBanReason, field.TypeString, value)
+	}
+	if _u.mutation.BanReasonCleared() {
+		_spec.ClearField(user.FieldBanReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.Banned(); ok {
+		_spec.SetField(user.FieldBanned, field.TypeBool, value)
+	}
+	if _u.mutation.BannedCleared() {
+		_spec.ClearField(user.FieldBanned, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DisplayUsername(); ok {
+		_spec.SetField(user.FieldDisplayUsername, field.TypeString, value)
+	}
+	if _u.mutation.DisplayUsernameCleared() {
+		_spec.ClearField(user.FieldDisplayUsername, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsAnonymous(); ok {
+		_spec.SetField(user.FieldIsAnonymous, field.TypeBool, value)
+	}
+	if _u.mutation.IsAnonymousCleared() {
+		_spec.ClearField(user.FieldIsAnonymous, field.TypeBool)
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.IsActive(); ok {
-		_spec.SetField(user.FieldIsActive, field.TypeBool, value)
+	if _u.mutation.RoleCleared() {
+		_spec.ClearField(user.FieldRole, field.TypeString)
 	}
-	if value, ok := _u.mutation.UpdatedAt(); ok {
-		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	if value, ok := _u.mutation.Username(); ok {
+		_spec.SetField(user.FieldUsername, field.TypeString, value)
+	}
+	if _u.mutation.UsernameCleared() {
+		_spec.ClearField(user.FieldUsername, field.TypeString)
+	}
+	if _u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountsIDs(); len(nodes) > 0 && !_u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BlogPostsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedBlogPostsIDs(); len(nodes) > 0 && !_u.mutation.BlogPostsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BlogPostsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ReviewedCommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReviewedCommentsIDs(); len(nodes) > 0 && !_u.mutation.ReviewedCommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReviewedCommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionsIDs(); len(nodes) > 0 && !_u.mutation.SessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TwoFactorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTwoFactorsIDs(); len(nodes) > 0 && !_u.mutation.TwoFactorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TwoFactorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -224,20 +836,6 @@ type UserUpdateOne struct {
 	mutation *UserMutation
 }
 
-// SetEmail sets the "email" field.
-func (_u *UserUpdateOne) SetEmail(v string) *UserUpdateOne {
-	_u.mutation.SetEmail(v)
-	return _u
-}
-
-// SetNillableEmail sets the "email" field if the given value is not nil.
-func (_u *UserUpdateOne) SetNillableEmail(v *string) *UserUpdateOne {
-	if v != nil {
-		_u.SetEmail(*v)
-	}
-	return _u
-}
-
 // SetName sets the "name" field.
 func (_u *UserUpdateOne) SetName(v string) *UserUpdateOne {
 	_u.mutation.SetName(v)
@@ -252,23 +850,199 @@ func (_u *UserUpdateOne) SetNillableName(v *string) *UserUpdateOne {
 	return _u
 }
 
-// ClearName clears the value of the "name" field.
-func (_u *UserUpdateOne) ClearName() *UserUpdateOne {
-	_u.mutation.ClearName()
+// SetEmail sets the "email" field.
+func (_u *UserUpdateOne) SetEmail(v string) *UserUpdateOne {
+	_u.mutation.SetEmail(v)
 	return _u
 }
 
-// SetPasswordHash sets the "password_hash" field.
-func (_u *UserUpdateOne) SetPasswordHash(v string) *UserUpdateOne {
-	_u.mutation.SetPasswordHash(v)
-	return _u
-}
-
-// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
-func (_u *UserUpdateOne) SetNillablePasswordHash(v *string) *UserUpdateOne {
+// SetNillableEmail sets the "email" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableEmail(v *string) *UserUpdateOne {
 	if v != nil {
-		_u.SetPasswordHash(*v)
+		_u.SetEmail(*v)
 	}
+	return _u
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (_u *UserUpdateOne) SetEmailVerified(v bool) *UserUpdateOne {
+	_u.mutation.SetEmailVerified(v)
+	return _u
+}
+
+// SetNillableEmailVerified sets the "email_verified" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableEmailVerified(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetEmailVerified(*v)
+	}
+	return _u
+}
+
+// SetImage sets the "image" field.
+func (_u *UserUpdateOne) SetImage(v string) *UserUpdateOne {
+	_u.mutation.SetImage(v)
+	return _u
+}
+
+// SetNillableImage sets the "image" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableImage(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetImage(*v)
+	}
+	return _u
+}
+
+// ClearImage clears the value of the "image" field.
+func (_u *UserUpdateOne) ClearImage() *UserUpdateOne {
+	_u.mutation.ClearImage()
+	return _u
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (_u *UserUpdateOne) SetCreatedAt(v time.Time) *UserUpdateOne {
+	_u.mutation.SetCreatedAt(v)
+	return _u
+}
+
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableCreatedAt(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetCreatedAt(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *UserUpdateOne) SetUpdatedAt(v time.Time) *UserUpdateOne {
+	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableUpdatedAt(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetUpdatedAt(*v)
+	}
+	return _u
+}
+
+// SetTwoFactorEnabled sets the "two_factor_enabled" field.
+func (_u *UserUpdateOne) SetTwoFactorEnabled(v bool) *UserUpdateOne {
+	_u.mutation.SetTwoFactorEnabled(v)
+	return _u
+}
+
+// SetNillableTwoFactorEnabled sets the "two_factor_enabled" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableTwoFactorEnabled(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetTwoFactorEnabled(*v)
+	}
+	return _u
+}
+
+// ClearTwoFactorEnabled clears the value of the "two_factor_enabled" field.
+func (_u *UserUpdateOne) ClearTwoFactorEnabled() *UserUpdateOne {
+	_u.mutation.ClearTwoFactorEnabled()
+	return _u
+}
+
+// SetBanExpires sets the "ban_expires" field.
+func (_u *UserUpdateOne) SetBanExpires(v time.Time) *UserUpdateOne {
+	_u.mutation.SetBanExpires(v)
+	return _u
+}
+
+// SetNillableBanExpires sets the "ban_expires" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBanExpires(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetBanExpires(*v)
+	}
+	return _u
+}
+
+// ClearBanExpires clears the value of the "ban_expires" field.
+func (_u *UserUpdateOne) ClearBanExpires() *UserUpdateOne {
+	_u.mutation.ClearBanExpires()
+	return _u
+}
+
+// SetBanReason sets the "ban_reason" field.
+func (_u *UserUpdateOne) SetBanReason(v string) *UserUpdateOne {
+	_u.mutation.SetBanReason(v)
+	return _u
+}
+
+// SetNillableBanReason sets the "ban_reason" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBanReason(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetBanReason(*v)
+	}
+	return _u
+}
+
+// ClearBanReason clears the value of the "ban_reason" field.
+func (_u *UserUpdateOne) ClearBanReason() *UserUpdateOne {
+	_u.mutation.ClearBanReason()
+	return _u
+}
+
+// SetBanned sets the "banned" field.
+func (_u *UserUpdateOne) SetBanned(v bool) *UserUpdateOne {
+	_u.mutation.SetBanned(v)
+	return _u
+}
+
+// SetNillableBanned sets the "banned" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBanned(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetBanned(*v)
+	}
+	return _u
+}
+
+// ClearBanned clears the value of the "banned" field.
+func (_u *UserUpdateOne) ClearBanned() *UserUpdateOne {
+	_u.mutation.ClearBanned()
+	return _u
+}
+
+// SetDisplayUsername sets the "display_username" field.
+func (_u *UserUpdateOne) SetDisplayUsername(v string) *UserUpdateOne {
+	_u.mutation.SetDisplayUsername(v)
+	return _u
+}
+
+// SetNillableDisplayUsername sets the "display_username" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableDisplayUsername(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetDisplayUsername(*v)
+	}
+	return _u
+}
+
+// ClearDisplayUsername clears the value of the "display_username" field.
+func (_u *UserUpdateOne) ClearDisplayUsername() *UserUpdateOne {
+	_u.mutation.ClearDisplayUsername()
+	return _u
+}
+
+// SetIsAnonymous sets the "is_anonymous" field.
+func (_u *UserUpdateOne) SetIsAnonymous(v bool) *UserUpdateOne {
+	_u.mutation.SetIsAnonymous(v)
+	return _u
+}
+
+// SetNillableIsAnonymous sets the "is_anonymous" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableIsAnonymous(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetIsAnonymous(*v)
+	}
+	return _u
+}
+
+// ClearIsAnonymous clears the value of the "is_anonymous" field.
+func (_u *UserUpdateOne) ClearIsAnonymous() *UserUpdateOne {
+	_u.mutation.ClearIsAnonymous()
 	return _u
 }
 
@@ -286,29 +1060,215 @@ func (_u *UserUpdateOne) SetNillableRole(v *string) *UserUpdateOne {
 	return _u
 }
 
-// SetIsActive sets the "is_active" field.
-func (_u *UserUpdateOne) SetIsActive(v bool) *UserUpdateOne {
-	_u.mutation.SetIsActive(v)
+// ClearRole clears the value of the "role" field.
+func (_u *UserUpdateOne) ClearRole() *UserUpdateOne {
+	_u.mutation.ClearRole()
 	return _u
 }
 
-// SetNillableIsActive sets the "is_active" field if the given value is not nil.
-func (_u *UserUpdateOne) SetNillableIsActive(v *bool) *UserUpdateOne {
+// SetUsername sets the "username" field.
+func (_u *UserUpdateOne) SetUsername(v string) *UserUpdateOne {
+	_u.mutation.SetUsername(v)
+	return _u
+}
+
+// SetNillableUsername sets the "username" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableUsername(v *string) *UserUpdateOne {
 	if v != nil {
-		_u.SetIsActive(*v)
+		_u.SetUsername(*v)
 	}
 	return _u
 }
 
-// SetUpdatedAt sets the "updated_at" field.
-func (_u *UserUpdateOne) SetUpdatedAt(v time.Time) *UserUpdateOne {
-	_u.mutation.SetUpdatedAt(v)
+// ClearUsername clears the value of the "username" field.
+func (_u *UserUpdateOne) ClearUsername() *UserUpdateOne {
+	_u.mutation.ClearUsername()
 	return _u
+}
+
+// AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
+func (_u *UserUpdateOne) AddAccountIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddAccountIDs(ids...)
+	return _u
+}
+
+// AddAccounts adds the "accounts" edges to the Account entity.
+func (_u *UserUpdateOne) AddAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountIDs(ids...)
+}
+
+// AddBlogPostIDs adds the "blog_posts" edge to the BlogPost entity by IDs.
+func (_u *UserUpdateOne) AddBlogPostIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddBlogPostIDs(ids...)
+	return _u
+}
+
+// AddBlogPosts adds the "blog_posts" edges to the BlogPost entity.
+func (_u *UserUpdateOne) AddBlogPosts(v ...*BlogPost) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddBlogPostIDs(ids...)
+}
+
+// AddReviewedCommentIDs adds the "reviewed_comments" edge to the BlogComment entity by IDs.
+func (_u *UserUpdateOne) AddReviewedCommentIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddReviewedCommentIDs(ids...)
+	return _u
+}
+
+// AddReviewedComments adds the "reviewed_comments" edges to the BlogComment entity.
+func (_u *UserUpdateOne) AddReviewedComments(v ...*BlogComment) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReviewedCommentIDs(ids...)
+}
+
+// AddSessionIDs adds the "sessions" edge to the Session entity by IDs.
+func (_u *UserUpdateOne) AddSessionIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddSessionIDs(ids...)
+	return _u
+}
+
+// AddSessions adds the "sessions" edges to the Session entity.
+func (_u *UserUpdateOne) AddSessions(v ...*Session) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSessionIDs(ids...)
+}
+
+// AddTwoFactorIDs adds the "two_factors" edge to the TwoFactor entity by IDs.
+func (_u *UserUpdateOne) AddTwoFactorIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddTwoFactorIDs(ids...)
+	return _u
+}
+
+// AddTwoFactors adds the "two_factors" edges to the TwoFactor entity.
+func (_u *UserUpdateOne) AddTwoFactors(v ...*TwoFactor) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddTwoFactorIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearAccounts clears all "accounts" edges to the Account entity.
+func (_u *UserUpdateOne) ClearAccounts() *UserUpdateOne {
+	_u.mutation.ClearAccounts()
+	return _u
+}
+
+// RemoveAccountIDs removes the "accounts" edge to Account entities by IDs.
+func (_u *UserUpdateOne) RemoveAccountIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveAccountIDs(ids...)
+	return _u
+}
+
+// RemoveAccounts removes "accounts" edges to Account entities.
+func (_u *UserUpdateOne) RemoveAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountIDs(ids...)
+}
+
+// ClearBlogPosts clears all "blog_posts" edges to the BlogPost entity.
+func (_u *UserUpdateOne) ClearBlogPosts() *UserUpdateOne {
+	_u.mutation.ClearBlogPosts()
+	return _u
+}
+
+// RemoveBlogPostIDs removes the "blog_posts" edge to BlogPost entities by IDs.
+func (_u *UserUpdateOne) RemoveBlogPostIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveBlogPostIDs(ids...)
+	return _u
+}
+
+// RemoveBlogPosts removes "blog_posts" edges to BlogPost entities.
+func (_u *UserUpdateOne) RemoveBlogPosts(v ...*BlogPost) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveBlogPostIDs(ids...)
+}
+
+// ClearReviewedComments clears all "reviewed_comments" edges to the BlogComment entity.
+func (_u *UserUpdateOne) ClearReviewedComments() *UserUpdateOne {
+	_u.mutation.ClearReviewedComments()
+	return _u
+}
+
+// RemoveReviewedCommentIDs removes the "reviewed_comments" edge to BlogComment entities by IDs.
+func (_u *UserUpdateOne) RemoveReviewedCommentIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveReviewedCommentIDs(ids...)
+	return _u
+}
+
+// RemoveReviewedComments removes "reviewed_comments" edges to BlogComment entities.
+func (_u *UserUpdateOne) RemoveReviewedComments(v ...*BlogComment) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReviewedCommentIDs(ids...)
+}
+
+// ClearSessions clears all "sessions" edges to the Session entity.
+func (_u *UserUpdateOne) ClearSessions() *UserUpdateOne {
+	_u.mutation.ClearSessions()
+	return _u
+}
+
+// RemoveSessionIDs removes the "sessions" edge to Session entities by IDs.
+func (_u *UserUpdateOne) RemoveSessionIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveSessionIDs(ids...)
+	return _u
+}
+
+// RemoveSessions removes "sessions" edges to Session entities.
+func (_u *UserUpdateOne) RemoveSessions(v ...*Session) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSessionIDs(ids...)
+}
+
+// ClearTwoFactors clears all "two_factors" edges to the TwoFactor entity.
+func (_u *UserUpdateOne) ClearTwoFactors() *UserUpdateOne {
+	_u.mutation.ClearTwoFactors()
+	return _u
+}
+
+// RemoveTwoFactorIDs removes the "two_factors" edge to TwoFactor entities by IDs.
+func (_u *UserUpdateOne) RemoveTwoFactorIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveTwoFactorIDs(ids...)
+	return _u
+}
+
+// RemoveTwoFactors removes "two_factors" edges to TwoFactor entities.
+func (_u *UserUpdateOne) RemoveTwoFactors(v ...*TwoFactor) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveTwoFactorIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -326,7 +1286,6 @@ func (_u *UserUpdateOne) Select(field string, fields ...string) *UserUpdateOne {
 
 // Save executes the query and returns the updated User entity.
 func (_u *UserUpdateOne) Save(ctx context.Context) (*User, error) {
-	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -352,29 +1311,16 @@ func (_u *UserUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (_u *UserUpdateOne) defaults() {
-	if _, ok := _u.mutation.UpdatedAt(); !ok {
-		v := user.UpdateDefaultUpdatedAt()
-		_u.mutation.SetUpdatedAt(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (_u *UserUpdateOne) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := user.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "User.name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Email(); ok {
 		if err := user.EmailValidator(v); err != nil {
 			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.PasswordHash(); ok {
-		if err := user.PasswordHashValidator(v); err != nil {
-			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`ent: validator failed for field "User.password_hash": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Role(); ok {
-		if err := user.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "User.role": %w`, err)}
 		}
 	}
 	return nil
@@ -384,7 +1330,7 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeString))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "User.id" for update`)}
@@ -409,26 +1355,299 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			}
 		}
 	}
-	if value, ok := _u.mutation.Email(); ok {
-		_spec.SetField(user.FieldEmail, field.TypeString, value)
-	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
 	}
-	if _u.mutation.NameCleared() {
-		_spec.ClearField(user.FieldName, field.TypeString)
+	if value, ok := _u.mutation.Email(); ok {
+		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.PasswordHash(); ok {
-		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	if value, ok := _u.mutation.EmailVerified(); ok {
+		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Image(); ok {
+		_spec.SetField(user.FieldImage, field.TypeString, value)
+	}
+	if _u.mutation.ImageCleared() {
+		_spec.ClearField(user.FieldImage, field.TypeString)
+	}
+	if value, ok := _u.mutation.CreatedAt(); ok {
+		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.TwoFactorEnabled(); ok {
+		_spec.SetField(user.FieldTwoFactorEnabled, field.TypeBool, value)
+	}
+	if _u.mutation.TwoFactorEnabledCleared() {
+		_spec.ClearField(user.FieldTwoFactorEnabled, field.TypeBool)
+	}
+	if value, ok := _u.mutation.BanExpires(); ok {
+		_spec.SetField(user.FieldBanExpires, field.TypeTime, value)
+	}
+	if _u.mutation.BanExpiresCleared() {
+		_spec.ClearField(user.FieldBanExpires, field.TypeTime)
+	}
+	if value, ok := _u.mutation.BanReason(); ok {
+		_spec.SetField(user.FieldBanReason, field.TypeString, value)
+	}
+	if _u.mutation.BanReasonCleared() {
+		_spec.ClearField(user.FieldBanReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.Banned(); ok {
+		_spec.SetField(user.FieldBanned, field.TypeBool, value)
+	}
+	if _u.mutation.BannedCleared() {
+		_spec.ClearField(user.FieldBanned, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DisplayUsername(); ok {
+		_spec.SetField(user.FieldDisplayUsername, field.TypeString, value)
+	}
+	if _u.mutation.DisplayUsernameCleared() {
+		_spec.ClearField(user.FieldDisplayUsername, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsAnonymous(); ok {
+		_spec.SetField(user.FieldIsAnonymous, field.TypeBool, value)
+	}
+	if _u.mutation.IsAnonymousCleared() {
+		_spec.ClearField(user.FieldIsAnonymous, field.TypeBool)
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.IsActive(); ok {
-		_spec.SetField(user.FieldIsActive, field.TypeBool, value)
+	if _u.mutation.RoleCleared() {
+		_spec.ClearField(user.FieldRole, field.TypeString)
 	}
-	if value, ok := _u.mutation.UpdatedAt(); ok {
-		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	if value, ok := _u.mutation.Username(); ok {
+		_spec.SetField(user.FieldUsername, field.TypeString, value)
+	}
+	if _u.mutation.UsernameCleared() {
+		_spec.ClearField(user.FieldUsername, field.TypeString)
+	}
+	if _u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountsIDs(); len(nodes) > 0 && !_u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AccountsTable,
+			Columns: []string{user.AccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BlogPostsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedBlogPostsIDs(); len(nodes) > 0 && !_u.mutation.BlogPostsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BlogPostsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BlogPostsTable,
+			Columns: []string{user.BlogPostsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogpost.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ReviewedCommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReviewedCommentsIDs(); len(nodes) > 0 && !_u.mutation.ReviewedCommentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReviewedCommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReviewedCommentsTable,
+			Columns: []string{user.ReviewedCommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(blogcomment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSessionsIDs(); len(nodes) > 0 && !_u.mutation.SessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SessionsTable,
+			Columns: []string{user.SessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.TwoFactorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedTwoFactorsIDs(); len(nodes) > 0 && !_u.mutation.TwoFactorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.TwoFactorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TwoFactorsTable,
+			Columns: []string{user.TwoFactorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(twofactor.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: _u.config}
 	_spec.Assign = _node.assignValues

@@ -3,9 +3,15 @@
 package ent
 
 import (
+	"api/internal/infrastructure/persistence/ent/account"
+	"api/internal/infrastructure/persistence/ent/blogcomment"
+	"api/internal/infrastructure/persistence/ent/blogpost"
 	"api/internal/infrastructure/persistence/ent/predicate"
+	"api/internal/infrastructure/persistence/ent/session"
+	"api/internal/infrastructure/persistence/ent/twofactor"
 	"api/internal/infrastructure/persistence/ent/user"
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -18,10 +24,15 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx        *QueryContext
-	order      []user.OrderOption
-	inters     []Interceptor
-	predicates []predicate.User
+	ctx                  *QueryContext
+	order                []user.OrderOption
+	inters               []Interceptor
+	predicates           []predicate.User
+	withAccounts         *AccountQuery
+	withBlogPosts        *BlogPostQuery
+	withReviewedComments *BlogCommentQuery
+	withSessions         *SessionQuery
+	withTwoFactors       *TwoFactorQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +69,116 @@ func (_q *UserQuery) Order(o ...user.OrderOption) *UserQuery {
 	return _q
 }
 
+// QueryAccounts chains the current query on the "accounts" edge.
+func (_q *UserQuery) QueryAccounts() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AccountsTable, user.AccountsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryBlogPosts chains the current query on the "blog_posts" edge.
+func (_q *UserQuery) QueryBlogPosts() *BlogPostQuery {
+	query := (&BlogPostClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(blogpost.Table, blogpost.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.BlogPostsTable, user.BlogPostsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryReviewedComments chains the current query on the "reviewed_comments" edge.
+func (_q *UserQuery) QueryReviewedComments() *BlogCommentQuery {
+	query := (&BlogCommentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(blogcomment.Table, blogcomment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ReviewedCommentsTable, user.ReviewedCommentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySessions chains the current query on the "sessions" edge.
+func (_q *UserQuery) QuerySessions() *SessionQuery {
+	query := (&SessionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SessionsTable, user.SessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTwoFactors chains the current query on the "two_factors" edge.
+func (_q *UserQuery) QueryTwoFactors() *TwoFactorQuery {
+	query := (&TwoFactorClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(twofactor.Table, twofactor.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.TwoFactorsTable, user.TwoFactorsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first User entity from the query.
 // Returns a *NotFoundError when no User was found.
 func (_q *UserQuery) First(ctx context.Context) (*User, error) {
@@ -82,8 +203,8 @@ func (_q *UserQuery) FirstX(ctx context.Context) *User {
 
 // FirstID returns the first User ID from the query.
 // Returns a *NotFoundError when no User ID was found.
-func (_q *UserQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *UserQuery) FirstID(ctx context.Context) (id string, err error) {
+	var ids []string
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +216,7 @@ func (_q *UserQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *UserQuery) FirstIDX(ctx context.Context) int {
+func (_q *UserQuery) FirstIDX(ctx context.Context) string {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +254,8 @@ func (_q *UserQuery) OnlyX(ctx context.Context) *User {
 // OnlyID is like Only, but returns the only User ID in the query.
 // Returns a *NotSingularError when more than one User ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *UserQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *UserQuery) OnlyID(ctx context.Context) (id string, err error) {
+	var ids []string
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +271,7 @@ func (_q *UserQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *UserQuery) OnlyIDX(ctx context.Context) int {
+func (_q *UserQuery) OnlyIDX(ctx context.Context) string {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +299,7 @@ func (_q *UserQuery) AllX(ctx context.Context) []*User {
 }
 
 // IDs executes the query and returns a list of User IDs.
-func (_q *UserQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *UserQuery) IDs(ctx context.Context) (ids []string, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +311,7 @@ func (_q *UserQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *UserQuery) IDsX(ctx context.Context) []int {
+func (_q *UserQuery) IDsX(ctx context.Context) []string {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -245,15 +366,75 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]user.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.User{}, _q.predicates...),
+		config:               _q.config,
+		ctx:                  _q.ctx.Clone(),
+		order:                append([]user.OrderOption{}, _q.order...),
+		inters:               append([]Interceptor{}, _q.inters...),
+		predicates:           append([]predicate.User{}, _q.predicates...),
+		withAccounts:         _q.withAccounts.Clone(),
+		withBlogPosts:        _q.withBlogPosts.Clone(),
+		withReviewedComments: _q.withReviewedComments.Clone(),
+		withSessions:         _q.withSessions.Clone(),
+		withTwoFactors:       _q.withTwoFactors.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithAccounts tells the query-builder to eager-load the nodes that are connected to
+// the "accounts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithAccounts(opts ...func(*AccountQuery)) *UserQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccounts = query
+	return _q
+}
+
+// WithBlogPosts tells the query-builder to eager-load the nodes that are connected to
+// the "blog_posts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithBlogPosts(opts ...func(*BlogPostQuery)) *UserQuery {
+	query := (&BlogPostClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withBlogPosts = query
+	return _q
+}
+
+// WithReviewedComments tells the query-builder to eager-load the nodes that are connected to
+// the "reviewed_comments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithReviewedComments(opts ...func(*BlogCommentQuery)) *UserQuery {
+	query := (&BlogCommentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withReviewedComments = query
+	return _q
+}
+
+// WithSessions tells the query-builder to eager-load the nodes that are connected to
+// the "sessions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithSessions(opts ...func(*SessionQuery)) *UserQuery {
+	query := (&SessionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSessions = query
+	return _q
+}
+
+// WithTwoFactors tells the query-builder to eager-load the nodes that are connected to
+// the "two_factors" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithTwoFactors(opts ...func(*TwoFactorQuery)) *UserQuery {
+	query := (&TwoFactorClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTwoFactors = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -262,12 +443,12 @@ func (_q *UserQuery) Clone() *UserQuery {
 // Example:
 //
 //	var v []struct {
-//		Email string `json:"email,omitempty"`
+//		Name string `json:"name,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.User.Query().
-//		GroupBy(user.FieldEmail).
+//		GroupBy(user.FieldName).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *UserQuery) GroupBy(field string, fields ...string) *UserGroupBy {
@@ -285,11 +466,11 @@ func (_q *UserQuery) GroupBy(field string, fields ...string) *UserGroupBy {
 // Example:
 //
 //	var v []struct {
-//		Email string `json:"email,omitempty"`
+//		Name string `json:"name,omitempty"`
 //	}
 //
 //	client.User.Query().
-//		Select(user.FieldEmail).
+//		Select(user.FieldName).
 //		Scan(ctx, &v)
 func (_q *UserQuery) Select(fields ...string) *UserSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -332,8 +513,15 @@ func (_q *UserQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, error) {
 	var (
-		nodes = []*User{}
-		_spec = _q.querySpec()
+		nodes       = []*User{}
+		_spec       = _q.querySpec()
+		loadedTypes = [5]bool{
+			_q.withAccounts != nil,
+			_q.withBlogPosts != nil,
+			_q.withReviewedComments != nil,
+			_q.withSessions != nil,
+			_q.withTwoFactors != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*User).scanValues(nil, columns)
@@ -341,6 +529,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &User{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +541,196 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withAccounts; query != nil {
+		if err := _q.loadAccounts(ctx, query, nodes,
+			func(n *User) { n.Edges.Accounts = []*Account{} },
+			func(n *User, e *Account) { n.Edges.Accounts = append(n.Edges.Accounts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withBlogPosts; query != nil {
+		if err := _q.loadBlogPosts(ctx, query, nodes,
+			func(n *User) { n.Edges.BlogPosts = []*BlogPost{} },
+			func(n *User, e *BlogPost) { n.Edges.BlogPosts = append(n.Edges.BlogPosts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withReviewedComments; query != nil {
+		if err := _q.loadReviewedComments(ctx, query, nodes,
+			func(n *User) { n.Edges.ReviewedComments = []*BlogComment{} },
+			func(n *User, e *BlogComment) { n.Edges.ReviewedComments = append(n.Edges.ReviewedComments, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSessions; query != nil {
+		if err := _q.loadSessions(ctx, query, nodes,
+			func(n *User) { n.Edges.Sessions = []*Session{} },
+			func(n *User, e *Session) { n.Edges.Sessions = append(n.Edges.Sessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTwoFactors; query != nil {
+		if err := _q.loadTwoFactors(ctx, query, nodes,
+			func(n *User) { n.Edges.TwoFactors = []*TwoFactor{} },
+			func(n *User, e *TwoFactor) { n.Edges.TwoFactors = append(n.Edges.TwoFactors, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *UserQuery) loadAccounts(ctx context.Context, query *AccountQuery, nodes []*User, init func(*User), assign func(*User, *Account)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(account.FieldUserID)
+	}
+	query.Where(predicate.Account(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.AccountsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadBlogPosts(ctx context.Context, query *BlogPostQuery, nodes []*User, init func(*User), assign func(*User, *BlogPost)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(blogpost.FieldAuthorUserID)
+	}
+	query.Where(predicate.BlogPost(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.BlogPostsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AuthorUserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "author_user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadReviewedComments(ctx context.Context, query *BlogCommentQuery, nodes []*User, init func(*User), assign func(*User, *BlogComment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(blogcomment.FieldReviewedByUserID)
+	}
+	query.Where(predicate.BlogComment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.ReviewedCommentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ReviewedByUserID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "reviewed_by_user_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "reviewed_by_user_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadSessions(ctx context.Context, query *SessionQuery, nodes []*User, init func(*User), assign func(*User, *Session)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(session.FieldUserID)
+	}
+	query.Where(predicate.Session(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.SessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadTwoFactors(ctx context.Context, query *TwoFactorQuery, nodes []*User, init func(*User), assign func(*User, *TwoFactor)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(twofactor.FieldUserID)
+	}
+	query.Where(predicate.TwoFactor(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.TwoFactorsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (_q *UserQuery) sqlCount(ctx context.Context) (int, error) {
@@ -365,7 +743,7 @@ func (_q *UserQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *UserQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(user.Table, user.Columns, sqlgraph.NewFieldSpec(user.FieldID, field.TypeString))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

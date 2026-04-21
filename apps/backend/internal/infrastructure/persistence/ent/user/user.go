@@ -3,9 +3,8 @@
 package user
 
 import (
-	"time"
-
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -13,34 +12,100 @@ const (
 	Label = "user"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
-	// FieldEmail holds the string denoting the email field in the database.
-	FieldEmail = "email"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldPasswordHash holds the string denoting the password_hash field in the database.
-	FieldPasswordHash = "password_hash"
+	// FieldEmail holds the string denoting the email field in the database.
+	FieldEmail = "email"
+	// FieldEmailVerified holds the string denoting the email_verified field in the database.
+	FieldEmailVerified = "emailVerified"
+	// FieldImage holds the string denoting the image field in the database.
+	FieldImage = "image"
+	// FieldCreatedAt holds the string denoting the created_at field in the database.
+	FieldCreatedAt = "createdAt"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updatedAt"
+	// FieldTwoFactorEnabled holds the string denoting the two_factor_enabled field in the database.
+	FieldTwoFactorEnabled = "twoFactorEnabled"
+	// FieldBanExpires holds the string denoting the ban_expires field in the database.
+	FieldBanExpires = "banExpires"
+	// FieldBanReason holds the string denoting the ban_reason field in the database.
+	FieldBanReason = "banReason"
+	// FieldBanned holds the string denoting the banned field in the database.
+	FieldBanned = "banned"
+	// FieldDisplayUsername holds the string denoting the display_username field in the database.
+	FieldDisplayUsername = "displayUsername"
+	// FieldIsAnonymous holds the string denoting the is_anonymous field in the database.
+	FieldIsAnonymous = "isAnonymous"
 	// FieldRole holds the string denoting the role field in the database.
 	FieldRole = "role"
-	// FieldIsActive holds the string denoting the is_active field in the database.
-	FieldIsActive = "is_active"
-	// FieldCreatedAt holds the string denoting the created_at field in the database.
-	FieldCreatedAt = "created_at"
-	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
-	FieldUpdatedAt = "updated_at"
+	// FieldUsername holds the string denoting the username field in the database.
+	FieldUsername = "username"
+	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
+	EdgeAccounts = "accounts"
+	// EdgeBlogPosts holds the string denoting the blog_posts edge name in mutations.
+	EdgeBlogPosts = "blog_posts"
+	// EdgeReviewedComments holds the string denoting the reviewed_comments edge name in mutations.
+	EdgeReviewedComments = "reviewed_comments"
+	// EdgeSessions holds the string denoting the sessions edge name in mutations.
+	EdgeSessions = "sessions"
+	// EdgeTwoFactors holds the string denoting the two_factors edge name in mutations.
+	EdgeTwoFactors = "two_factors"
 	// Table holds the table name of the user in the database.
-	Table = "users"
+	Table = "user"
+	// AccountsTable is the table that holds the accounts relation/edge.
+	AccountsTable = "account"
+	// AccountsInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	AccountsInverseTable = "account"
+	// AccountsColumn is the table column denoting the accounts relation/edge.
+	AccountsColumn = "userId"
+	// BlogPostsTable is the table that holds the blog_posts relation/edge.
+	BlogPostsTable = "blogPost"
+	// BlogPostsInverseTable is the table name for the BlogPost entity.
+	// It exists in this package in order to avoid circular dependency with the "blogpost" package.
+	BlogPostsInverseTable = "blogPost"
+	// BlogPostsColumn is the table column denoting the blog_posts relation/edge.
+	BlogPostsColumn = "authorUserId"
+	// ReviewedCommentsTable is the table that holds the reviewed_comments relation/edge.
+	ReviewedCommentsTable = "blogComment"
+	// ReviewedCommentsInverseTable is the table name for the BlogComment entity.
+	// It exists in this package in order to avoid circular dependency with the "blogcomment" package.
+	ReviewedCommentsInverseTable = "blogComment"
+	// ReviewedCommentsColumn is the table column denoting the reviewed_comments relation/edge.
+	ReviewedCommentsColumn = "reviewedByUserId"
+	// SessionsTable is the table that holds the sessions relation/edge.
+	SessionsTable = "session"
+	// SessionsInverseTable is the table name for the Session entity.
+	// It exists in this package in order to avoid circular dependency with the "session" package.
+	SessionsInverseTable = "session"
+	// SessionsColumn is the table column denoting the sessions relation/edge.
+	SessionsColumn = "userId"
+	// TwoFactorsTable is the table that holds the two_factors relation/edge.
+	TwoFactorsTable = "twoFactor"
+	// TwoFactorsInverseTable is the table name for the TwoFactor entity.
+	// It exists in this package in order to avoid circular dependency with the "twofactor" package.
+	TwoFactorsInverseTable = "twoFactor"
+	// TwoFactorsColumn is the table column denoting the two_factors relation/edge.
+	TwoFactorsColumn = "userId"
 )
 
 // Columns holds all SQL columns for user fields.
 var Columns = []string{
 	FieldID,
-	FieldEmail,
 	FieldName,
-	FieldPasswordHash,
-	FieldRole,
-	FieldIsActive,
+	FieldEmail,
+	FieldEmailVerified,
+	FieldImage,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldTwoFactorEnabled,
+	FieldBanExpires,
+	FieldBanReason,
+	FieldBanned,
+	FieldDisplayUsername,
+	FieldIsAnonymous,
+	FieldRole,
+	FieldUsername,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -54,22 +119,12 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
 	// EmailValidator is a validator for the "email" field. It is called by the builders before save.
 	EmailValidator func(string) error
-	// PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
-	PasswordHashValidator func(string) error
-	// DefaultRole holds the default value on creation for the "role" field.
-	DefaultRole string
-	// RoleValidator is a validator for the "role" field. It is called by the builders before save.
-	RoleValidator func(string) error
-	// DefaultIsActive holds the default value on creation for the "is_active" field.
-	DefaultIsActive bool
-	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
-	DefaultCreatedAt func() time.Time
-	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
-	DefaultUpdatedAt func() time.Time
-	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
-	UpdateDefaultUpdatedAt func() time.Time
+	// IDValidator is a validator for the "id" field. It is called by the builders before save.
+	IDValidator func(string) error
 )
 
 // OrderOption defines the ordering options for the User queries.
@@ -80,29 +135,24 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
 }
 
-// ByEmail orders the results by the email field.
-func ByEmail(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldEmail, opts...).ToFunc()
-}
-
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
 }
 
-// ByPasswordHash orders the results by the password_hash field.
-func ByPasswordHash(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPasswordHash, opts...).ToFunc()
+// ByEmail orders the results by the email field.
+func ByEmail(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmail, opts...).ToFunc()
 }
 
-// ByRole orders the results by the role field.
-func ByRole(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRole, opts...).ToFunc()
+// ByEmailVerified orders the results by the email_verified field.
+func ByEmailVerified(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailVerified, opts...).ToFunc()
 }
 
-// ByIsActive orders the results by the is_active field.
-func ByIsActive(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldIsActive, opts...).ToFunc()
+// ByImage orders the results by the image field.
+func ByImage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImage, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.
@@ -113,4 +163,149 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByTwoFactorEnabled orders the results by the two_factor_enabled field.
+func ByTwoFactorEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTwoFactorEnabled, opts...).ToFunc()
+}
+
+// ByBanExpires orders the results by the ban_expires field.
+func ByBanExpires(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBanExpires, opts...).ToFunc()
+}
+
+// ByBanReason orders the results by the ban_reason field.
+func ByBanReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBanReason, opts...).ToFunc()
+}
+
+// ByBanned orders the results by the banned field.
+func ByBanned(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBanned, opts...).ToFunc()
+}
+
+// ByDisplayUsername orders the results by the display_username field.
+func ByDisplayUsername(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayUsername, opts...).ToFunc()
+}
+
+// ByIsAnonymous orders the results by the is_anonymous field.
+func ByIsAnonymous(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsAnonymous, opts...).ToFunc()
+}
+
+// ByRole orders the results by the role field.
+func ByRole(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRole, opts...).ToFunc()
+}
+
+// ByUsername orders the results by the username field.
+func ByUsername(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUsername, opts...).ToFunc()
+}
+
+// ByAccountsCount orders the results by accounts count.
+func ByAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountsStep(), opts...)
+	}
+}
+
+// ByAccounts orders the results by accounts terms.
+func ByAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByBlogPostsCount orders the results by blog_posts count.
+func ByBlogPostsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newBlogPostsStep(), opts...)
+	}
+}
+
+// ByBlogPosts orders the results by blog_posts terms.
+func ByBlogPosts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBlogPostsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByReviewedCommentsCount orders the results by reviewed_comments count.
+func ByReviewedCommentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newReviewedCommentsStep(), opts...)
+	}
+}
+
+// ByReviewedComments orders the results by reviewed_comments terms.
+func ByReviewedComments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newReviewedCommentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySessionsCount orders the results by sessions count.
+func BySessionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSessionsStep(), opts...)
+	}
+}
+
+// BySessions orders the results by sessions terms.
+func BySessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByTwoFactorsCount orders the results by two_factors count.
+func ByTwoFactorsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTwoFactorsStep(), opts...)
+	}
+}
+
+// ByTwoFactors orders the results by two_factors terms.
+func ByTwoFactors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTwoFactorsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountsTable, AccountsColumn),
+	)
+}
+func newBlogPostsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BlogPostsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, BlogPostsTable, BlogPostsColumn),
+	)
+}
+func newReviewedCommentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ReviewedCommentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ReviewedCommentsTable, ReviewedCommentsColumn),
+	)
+}
+func newSessionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SessionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SessionsTable, SessionsColumn),
+	)
+}
+func newTwoFactorsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TwoFactorsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TwoFactorsTable, TwoFactorsColumn),
+	)
 }

@@ -12,8 +12,42 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// Account is the client for interacting with the Account builders.
+	Account *AccountClient
+	// BlogComment is the client for interacting with the BlogComment builders.
+	BlogComment *BlogCommentClient
+	// BlogPost is the client for interacting with the BlogPost builders.
+	BlogPost *BlogPostClient
+	// CVDownloadLog is the client for interacting with the CVDownloadLog builders.
+	CVDownloadLog *CVDownloadLogClient
+	// Certificate is the client for interacting with the Certificate builders.
+	Certificate *CertificateClient
+	// Education is the client for interacting with the Education builders.
+	Education *EducationClient
+	// Experience is the client for interacting with the Experience builders.
+	Experience *ExperienceClient
+	// Message is the client for interacting with the Message builders.
+	Message *MessageClient
+	// ProfileContent is the client for interacting with the ProfileContent builders.
+	ProfileContent *ProfileContentClient
+	// Project is the client for interacting with the Project builders.
+	Project *ProjectClient
+	// ResumeAsset is the client for interacting with the ResumeAsset builders.
+	ResumeAsset *ResumeAssetClient
+	// Session is the client for interacting with the Session builders.
+	Session *SessionClient
+	// Skill is the client for interacting with the Skill builders.
+	Skill *SkillClient
+	// Testimonial is the client for interacting with the Testimonial builders.
+	Testimonial *TestimonialClient
+	// TwoFactor is the client for interacting with the TwoFactor builders.
+	TwoFactor *TwoFactorClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// Verification is the client for interacting with the Verification builders.
+	Verification *VerificationClient
+	// VisitorLog is the client for interacting with the VisitorLog builders.
+	VisitorLog *VisitorLogClient
 
 	// lazily loaded.
 	client     *Client
@@ -145,7 +179,24 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.Account = NewAccountClient(tx.config)
+	tx.BlogComment = NewBlogCommentClient(tx.config)
+	tx.BlogPost = NewBlogPostClient(tx.config)
+	tx.CVDownloadLog = NewCVDownloadLogClient(tx.config)
+	tx.Certificate = NewCertificateClient(tx.config)
+	tx.Education = NewEducationClient(tx.config)
+	tx.Experience = NewExperienceClient(tx.config)
+	tx.Message = NewMessageClient(tx.config)
+	tx.ProfileContent = NewProfileContentClient(tx.config)
+	tx.Project = NewProjectClient(tx.config)
+	tx.ResumeAsset = NewResumeAssetClient(tx.config)
+	tx.Session = NewSessionClient(tx.config)
+	tx.Skill = NewSkillClient(tx.config)
+	tx.Testimonial = NewTestimonialClient(tx.config)
+	tx.TwoFactor = NewTwoFactorClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.Verification = NewVerificationClient(tx.config)
+	tx.VisitorLog = NewVisitorLogClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.
@@ -155,7 +206,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: User.QueryXXX(), the query will be executed
+// applies a query, for example: Account.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

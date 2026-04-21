@@ -3,33 +3,766 @@
 package migrate
 
 import (
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/dialect/sql/schema"
 	"entgo.io/ent/schema/field"
 )
 
 var (
-	// UsersColumns holds the columns for the "users" table.
-	UsersColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "email", Type: field.TypeString, Unique: true},
-		{Name: "name", Type: field.TypeString, Nullable: true},
-		{Name: "password_hash", Type: field.TypeString},
-		{Name: "role", Type: field.TypeString, Default: "admin"},
-		{Name: "is_active", Type: field.TypeBool, Default: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+	// AccountColumns holds the columns for the "account" table.
+	AccountColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "accountId", Type: field.TypeString},
+		{Name: "providerId", Type: field.TypeString},
+		{Name: "accessToken", Type: field.TypeString, Nullable: true},
+		{Name: "refreshToken", Type: field.TypeString, Nullable: true},
+		{Name: "idToken", Type: field.TypeString, Nullable: true},
+		{Name: "accessTokenExpiresAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "refreshTokenExpiresAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "scope", Type: field.TypeString, Nullable: true},
+		{Name: "password", Type: field.TypeString, Nullable: true},
+		{Name: "createdAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "userId", Type: field.TypeString},
 	}
-	// UsersTable holds the schema information for the "users" table.
-	UsersTable = &schema.Table{
-		Name:       "users",
-		Columns:    UsersColumns,
-		PrimaryKey: []*schema.Column{UsersColumns[0]},
+	// AccountTable holds the schema information for the "account" table.
+	AccountTable = &schema.Table{
+		Name:       "account",
+		Columns:    AccountColumns,
+		PrimaryKey: []*schema.Column{AccountColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_userId_fkey",
+				Columns:    []*schema.Column{AccountColumns[12]},
+				RefColumns: []*schema.Column{UserColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// BlogCommentColumns holds the columns for the "blogComment" table.
+	BlogCommentColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "displayName", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString},
+		{Name: "body", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "APPROVED", "REJECTED", "SPAM"}, Default: "PENDING", SchemaType: map[string]string{"postgres": "\"BlogCommentStatus\""}},
+		{Name: "reviewedAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "ipHash", Type: field.TypeString},
+		{Name: "fingerprint", Type: field.TypeString},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "parentId", Type: field.TypeString, Nullable: true},
+		{Name: "blogPostId", Type: field.TypeString},
+		{Name: "reviewedByUserId", Type: field.TypeString, Nullable: true},
+	}
+	// BlogCommentTable holds the schema information for the "blogComment" table.
+	BlogCommentTable = &schema.Table{
+		Name:       "blogComment",
+		Columns:    BlogCommentColumns,
+		PrimaryKey: []*schema.Column{BlogCommentColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "blogComment_parentId_fkey",
+				Columns:    []*schema.Column{BlogCommentColumns[10]},
+				RefColumns: []*schema.Column{BlogCommentColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "blogComment_blogPostId_fkey",
+				Columns:    []*schema.Column{BlogCommentColumns[11]},
+				RefColumns: []*schema.Column{BlogPostColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "blogComment_reviewedByUserId_fkey",
+				Columns:    []*schema.Column{BlogCommentColumns[12]},
+				RefColumns: []*schema.Column{UserColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "blogComment_blogPostId_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[11]},
+			},
+			{
+				Name:    "blogComment_blogPostId_parentId_status_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[11], BlogCommentColumns[10], BlogCommentColumns[4], BlogCommentColumns[8]},
+			},
+			{
+				Name:    "blogComment_blogPostId_status_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[11], BlogCommentColumns[4], BlogCommentColumns[8]},
+			},
+			{
+				Name:    "blogComment_fingerprint_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[7]},
+			},
+			{
+				Name:    "blogComment_ipHash_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[6], BlogCommentColumns[8]},
+			},
+			{
+				Name:    "blogComment_parentId_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[10]},
+			},
+			{
+				Name:    "blogComment_reviewedByUserId_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[12]},
+			},
+			{
+				Name:    "blogComment_status_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogCommentColumns[4]},
+			},
+		},
+	}
+	// BlogPostColumns holds the columns for the "blogPost" table.
+	BlogPostColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "title", Type: field.TypeString},
+		{Name: "slug", Type: field.TypeString},
+		{Name: "excerpt", Type: field.TypeString},
+		{Name: "content", Type: field.TypeString},
+		{Name: "tags", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "category", Type: field.TypeString},
+		{Name: "coverImagePlaceholder", Type: field.TypeString, Nullable: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"DRAFT", "PUBLISHED", "ARCHIVED"}, Default: "DRAFT", SchemaType: map[string]string{"postgres": "\"BlogPostStatus\""}},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "publishDate", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "readingTime", Type: field.TypeString},
+		{Name: "seoTitle", Type: field.TypeString, Nullable: true},
+		{Name: "seoDescription", Type: field.TypeString, Nullable: true},
+		{Name: "authorName", Type: field.TypeString},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "authorUserId", Type: field.TypeString},
+	}
+	// BlogPostTable holds the schema information for the "blogPost" table.
+	BlogPostTable = &schema.Table{
+		Name:       "blogPost",
+		Columns:    BlogPostColumns,
+		PrimaryKey: []*schema.Column{BlogPostColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "blogPost_authorUserId_fkey",
+				Columns:    []*schema.Column{BlogPostColumns[17]},
+				RefColumns: []*schema.Column{UserColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "blogPost_authorUserId_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogPostColumns[17]},
+			},
+			{
+				Name:    "blogPost_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogPostColumns[9]},
+			},
+			{
+				Name:    "blogPost_publishDate_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogPostColumns[10]},
+			},
+			{
+				Name:    "blogPost_slug_key",
+				Unique:  true,
+				Columns: []*schema.Column{BlogPostColumns[2]},
+			},
+			{
+				Name:    "blogPost_status_featured_publishDate_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogPostColumns[8], BlogPostColumns[9], BlogPostColumns[10]},
+			},
+			{
+				Name:    "blogPost_status_idx",
+				Unique:  false,
+				Columns: []*schema.Column{BlogPostColumns[8]},
+			},
+		},
+	}
+	// CvDownloadLogColumns holds the columns for the "cvDownloadLog" table.
+	CvDownloadLogColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "ipHash", Type: field.TypeString},
+		{Name: "userAgent", Type: field.TypeString},
+		{Name: "referrer", Type: field.TypeString, Default: "direct"},
+		{Name: "downloadedAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// CvDownloadLogTable holds the schema information for the "cvDownloadLog" table.
+	CvDownloadLogTable = &schema.Table{
+		Name:       "cvDownloadLog",
+		Columns:    CvDownloadLogColumns,
+		PrimaryKey: []*schema.Column{CvDownloadLogColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "cvDownloadLog_downloadedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{CvDownloadLogColumns[4]},
+			},
+			{
+				Name:    "cvDownloadLog_ipHash_downloadedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{CvDownloadLogColumns[1], CvDownloadLogColumns[4]},
+			},
+		},
+	}
+	// CertificateColumns holds the columns for the "certificate" table.
+	CertificateColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "issuer", Type: field.TypeString},
+		{Name: "year", Type: field.TypeString},
+		{Name: "verificationLink", Type: field.TypeString},
+		{Name: "credentialId", Type: field.TypeString, Nullable: true},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "sortOrder", Type: field.TypeInt, Default: 0},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// CertificateTable holds the schema information for the "certificate" table.
+	CertificateTable = &schema.Table{
+		Name:       "certificate",
+		Columns:    CertificateColumns,
+		PrimaryKey: []*schema.Column{CertificateColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "certificate_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{CertificateColumns[6]},
+			},
+			{
+				Name:    "certificate_sortOrder_idx",
+				Unique:  false,
+				Columns: []*schema.Column{CertificateColumns[7]},
+			},
+		},
+	}
+	// EducationColumns holds the columns for the "education" table.
+	EducationColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "degree", Type: field.TypeString},
+		{Name: "school", Type: field.TypeString},
+		{Name: "period", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString},
+		{Name: "highlights", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "sortOrder", Type: field.TypeInt, Default: 0},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// EducationTable holds the schema information for the "education" table.
+	EducationTable = &schema.Table{
+		Name:       "education",
+		Columns:    EducationColumns,
+		PrimaryKey: []*schema.Column{EducationColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "education_sortOrder_idx",
+				Unique:  false,
+				Columns: []*schema.Column{EducationColumns[6]},
+			},
+		},
+	}
+	// ExperienceColumns holds the columns for the "experience" table.
+	ExperienceColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "role", Type: field.TypeString},
+		{Name: "company", Type: field.TypeString},
+		{Name: "period", Type: field.TypeString},
+		{Name: "location", Type: field.TypeString},
+		{Name: "summary", Type: field.TypeString},
+		{Name: "achievements", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "sortOrder", Type: field.TypeInt, Default: 0},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// ExperienceTable holds the schema information for the "experience" table.
+	ExperienceTable = &schema.Table{
+		Name:       "experience",
+		Columns:    ExperienceColumns,
+		PrimaryKey: []*schema.Column{ExperienceColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "experience_sortOrder_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ExperienceColumns[7]},
+			},
+		},
+	}
+	// MessageColumns holds the columns for the "message" table.
+	MessageColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "senderName", Type: field.TypeString},
+		{Name: "senderEmail", Type: field.TypeString},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "body", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"UNREAD", "READ", "ARCHIVED"}, Default: "UNREAD", SchemaType: map[string]string{"postgres": "\"MessageStatus\""}},
+		{Name: "readAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "archivedAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// MessageTable holds the schema information for the "message" table.
+	MessageTable = &schema.Table{
+		Name:       "message",
+		Columns:    MessageColumns,
+		PrimaryKey: []*schema.Column{MessageColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "message_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{MessageColumns[8]},
+			},
+			{
+				Name:    "message_status_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{MessageColumns[5], MessageColumns[8]},
+			},
+			{
+				Name:    "message_status_idx",
+				Unique:  false,
+				Columns: []*schema.Column{MessageColumns[5]},
+			},
+		},
+	}
+	// ProfileContentColumns holds the columns for the "profileContent" table.
+	ProfileContentColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "storageKey", Type: field.TypeString, Default: "primary"},
+		{Name: "fullName", Type: field.TypeString},
+		{Name: "headline", Type: field.TypeString},
+		{Name: "shortIntro", Type: field.TypeString},
+		{Name: "about", Type: field.TypeString},
+		{Name: "location", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString},
+		{Name: "phone", Type: field.TypeString},
+		{Name: "availability", Type: field.TypeString},
+		{Name: "primaryCta", Type: field.TypeString},
+		{Name: "socialLinks", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "profilePhotoUrl", Type: field.TypeString, Nullable: true},
+		{Name: "focus", Type: field.TypeJSON, Default: "ARRAY[]::text[]", SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "stats", Type: field.TypeJSON, Default: "'[]'::jsonb", SchemaType: map[string]string{"postgres": "jsonb"}},
+	}
+	// ProfileContentTable holds the schema information for the "profileContent" table.
+	ProfileContentTable = &schema.Table{
+		Name:       "profileContent",
+		Columns:    ProfileContentColumns,
+		PrimaryKey: []*schema.Column{ProfileContentColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "profileContent_storageKey_key",
+				Unique:  true,
+				Columns: []*schema.Column{ProfileContentColumns[1]},
+			},
+		},
+	}
+	// ProjectColumns holds the columns for the "project" table.
+	ProjectColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "title", Type: field.TypeString},
+		{Name: "slug", Type: field.TypeString},
+		{Name: "summary", Type: field.TypeString},
+		{Name: "category", Type: field.TypeString},
+		{Name: "year", Type: field.TypeString},
+		{Name: "clientOrCompany", Type: field.TypeString},
+		{Name: "role", Type: field.TypeString},
+		{Name: "duration", Type: field.TypeString},
+		{Name: "thumbnailPlaceholder", Type: field.TypeString},
+		{Name: "projectUrl", Type: field.TypeString, Nullable: true},
+		{Name: "githubUrl", Type: field.TypeString, Nullable: true},
+		{Name: "impactSummary", Type: field.TypeString},
+		{Name: "tags", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "impactBullets", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "techStack", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "process", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"DRAFT", "PUBLISHED", "ARCHIVED"}, Default: "DRAFT", SchemaType: map[string]string{"postgres": "\"ProjectStatus\""}},
+		{Name: "sortOrder", Type: field.TypeInt, Nullable: true},
+		{Name: "accent", Type: field.TypeEnum, Enums: []string{"RED", "BLUE", "CREAM"}, Default: "RED", SchemaType: map[string]string{"postgres": "\"ProjectAccent\""}},
+		{Name: "challenge", Type: field.TypeString},
+		{Name: "outcome", Type: field.TypeString},
+		{Name: "metrics", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "gallery", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// ProjectTable holds the schema information for the "project" table.
+	ProjectTable = &schema.Table{
+		Name:       "project",
+		Columns:    ProjectColumns,
+		PrimaryKey: []*schema.Column{ProjectColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "project_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectColumns[17]},
+			},
+			{
+				Name:    "project_slug_key",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectColumns[2]},
+			},
+			{
+				Name:    "project_sortOrder_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectColumns[19]},
+			},
+			{
+				Name:    "project_status_featured_sortOrder_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectColumns[18], ProjectColumns[17], ProjectColumns[19]},
+			},
+			{
+				Name:    "project_status_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectColumns[18]},
+			},
+			{
+				Name:    "project_updatedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectColumns[26]},
+			},
+		},
+	}
+	// ResumeAssetColumns holds the columns for the "resumeAsset" table.
+	ResumeAssetColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "storageKey", Type: field.TypeString, Default: "primary"},
+		{Name: "downloadUrl", Type: field.TypeString},
+		{Name: "fileName", Type: field.TypeString, Nullable: true},
+		{Name: "fileSizeBytes", Type: field.TypeInt, Nullable: true},
+		{Name: "mimeType", Type: field.TypeString, Default: "application/pdf"},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// ResumeAssetTable holds the schema information for the "resumeAsset" table.
+	ResumeAssetTable = &schema.Table{
+		Name:       "resumeAsset",
+		Columns:    ResumeAssetColumns,
+		PrimaryKey: []*schema.Column{ResumeAssetColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "resumeAsset_storageKey_key",
+				Unique:  true,
+				Columns: []*schema.Column{ResumeAssetColumns[1]},
+			},
+		},
+	}
+	// SessionColumns holds the columns for the "session" table.
+	SessionColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "expiresAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "token", Type: field.TypeString},
+		{Name: "createdAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "ipAddress", Type: field.TypeString, Nullable: true},
+		{Name: "userAgent", Type: field.TypeString, Nullable: true},
+		{Name: "impersonatedBy", Type: field.TypeString, Nullable: true},
+		{Name: "userId", Type: field.TypeString},
+	}
+	// SessionTable holds the schema information for the "session" table.
+	SessionTable = &schema.Table{
+		Name:       "session",
+		Columns:    SessionColumns,
+		PrimaryKey: []*schema.Column{SessionColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "session_userId_fkey",
+				Columns:    []*schema.Column{SessionColumns[8]},
+				RefColumns: []*schema.Column{UserColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "session_token_key",
+				Unique:  true,
+				Columns: []*schema.Column{SessionColumns[2]},
+			},
+		},
+	}
+	// SkillColumns holds the columns for the "skill" table.
+	SkillColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "category", Type: field.TypeString},
+		{Name: "level", Type: field.TypeString},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// SkillTable holds the schema information for the "skill" table.
+	SkillTable = &schema.Table{
+		Name:       "skill",
+		Columns:    SkillColumns,
+		PrimaryKey: []*schema.Column{SkillColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "skill_category_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{SkillColumns[2], SkillColumns[4]},
+			},
+			{
+				Name:    "skill_category_idx",
+				Unique:  false,
+				Columns: []*schema.Column{SkillColumns[2]},
+			},
+			{
+				Name:    "skill_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{SkillColumns[4]},
+			},
+		},
+	}
+	// TestimonialColumns holds the columns for the "testimonial" table.
+	TestimonialColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "role", Type: field.TypeString},
+		{Name: "company", Type: field.TypeString, Nullable: true},
+		{Name: "message", Type: field.TypeString},
+		{Name: "rating", Type: field.TypeInt},
+		{Name: "relation", Type: field.TypeEnum, Enums: []string{"CLIENT", "COLLEAGUE", "MENTOR", "OTHER"}, SchemaType: map[string]string{"postgres": "\"TestimonialRelation\""}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "APPROVED", "REJECTED"}, Default: "PENDING", SchemaType: map[string]string{"postgres": "\"TestimonialStatus\""}},
+		{Name: "featured", Type: field.TypeBool, Default: false},
+		{Name: "reviewedAt", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "createdAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// TestimonialTable holds the schema information for the "testimonial" table.
+	TestimonialTable = &schema.Table{
+		Name:       "testimonial",
+		Columns:    TestimonialColumns,
+		PrimaryKey: []*schema.Column{TestimonialColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "testimonial_createdAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{TestimonialColumns[10]},
+			},
+			{
+				Name:    "testimonial_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{TestimonialColumns[8]},
+			},
+			{
+				Name:    "testimonial_status_featured_idx",
+				Unique:  false,
+				Columns: []*schema.Column{TestimonialColumns[7], TestimonialColumns[8]},
+			},
+			{
+				Name:    "testimonial_status_idx",
+				Unique:  false,
+				Columns: []*schema.Column{TestimonialColumns[7]},
+			},
+		},
+	}
+	// TwoFactorColumns holds the columns for the "twoFactor" table.
+	TwoFactorColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "secret", Type: field.TypeString},
+		{Name: "backupCodes", Type: field.TypeString},
+		{Name: "userId", Type: field.TypeString},
+	}
+	// TwoFactorTable holds the schema information for the "twoFactor" table.
+	TwoFactorTable = &schema.Table{
+		Name:       "twoFactor",
+		Columns:    TwoFactorColumns,
+		PrimaryKey: []*schema.Column{TwoFactorColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "twoFactor_userId_fkey",
+				Columns:    []*schema.Column{TwoFactorColumns[3]},
+				RefColumns: []*schema.Column{UserColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// UserColumns holds the columns for the "user" table.
+	UserColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString},
+		{Name: "emailVerified", Type: field.TypeBool},
+		{Name: "image", Type: field.TypeString, Nullable: true},
+		{Name: "createdAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "twoFactorEnabled", Type: field.TypeBool, Nullable: true},
+		{Name: "banExpires", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "banReason", Type: field.TypeString, Nullable: true},
+		{Name: "banned", Type: field.TypeBool, Nullable: true},
+		{Name: "displayUsername", Type: field.TypeString, Nullable: true},
+		{Name: "isAnonymous", Type: field.TypeBool, Nullable: true},
+		{Name: "role", Type: field.TypeString, Nullable: true},
+		{Name: "username", Type: field.TypeString, Nullable: true},
+	}
+	// UserTable holds the schema information for the "user" table.
+	UserTable = &schema.Table{
+		Name:       "user",
+		Columns:    UserColumns,
+		PrimaryKey: []*schema.Column{UserColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "user_email_key",
+				Unique:  true,
+				Columns: []*schema.Column{UserColumns[2]},
+			},
+			{
+				Name:    "user_username_key",
+				Unique:  true,
+				Columns: []*schema.Column{UserColumns[14]},
+			},
+		},
+	}
+	// VerificationColumns holds the columns for the "verification" table.
+	VerificationColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "identifier", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString},
+		{Name: "expiresAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "createdAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+		{Name: "updatedAt", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// VerificationTable holds the schema information for the "verification" table.
+	VerificationTable = &schema.Table{
+		Name:       "verification",
+		Columns:    VerificationColumns,
+		PrimaryKey: []*schema.Column{VerificationColumns[0]},
+	}
+	// VisitorLogColumns holds the columns for the "visitorLog" table.
+	VisitorLogColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString},
+		{Name: "visitorId", Type: field.TypeString},
+		{Name: "ipHash", Type: field.TypeString},
+		{Name: "path", Type: field.TypeString},
+		{Name: "referrer", Type: field.TypeString, Default: "direct"},
+		{Name: "referrerSource", Type: field.TypeString, Default: "direct"},
+		{Name: "userAgent", Type: field.TypeString},
+		{Name: "isUniqueDailyVisitor", Type: field.TypeBool, Default: false},
+		{Name: "visitedAt", Type: field.TypeTime, Default: "CURRENT_TIMESTAMP", SchemaType: map[string]string{"postgres": "timestamp(3) without time zone"}},
+	}
+	// VisitorLogTable holds the schema information for the "visitorLog" table.
+	VisitorLogTable = &schema.Table{
+		Name:       "visitorLog",
+		Columns:    VisitorLogColumns,
+		PrimaryKey: []*schema.Column{VisitorLogColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "visitorLog_path_visitedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{VisitorLogColumns[3], VisitorLogColumns[8]},
+			},
+			{
+				Name:    "visitorLog_referrerSource_visitedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{VisitorLogColumns[5], VisitorLogColumns[8]},
+			},
+			{
+				Name:    "visitorLog_visitedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{VisitorLogColumns[8]},
+			},
+			{
+				Name:    "visitorLog_visitorId_visitedAt_idx",
+				Unique:  false,
+				Columns: []*schema.Column{VisitorLogColumns[1], VisitorLogColumns[8]},
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		UsersTable,
+		AccountTable,
+		BlogCommentTable,
+		BlogPostTable,
+		CvDownloadLogTable,
+		CertificateTable,
+		EducationTable,
+		ExperienceTable,
+		MessageTable,
+		ProfileContentTable,
+		ProjectTable,
+		ResumeAssetTable,
+		SessionTable,
+		SkillTable,
+		TestimonialTable,
+		TwoFactorTable,
+		UserTable,
+		VerificationTable,
+		VisitorLogTable,
 	}
 )
 
 func init() {
+	AccountTable.ForeignKeys[0].RefTable = UserTable
+	AccountTable.Annotation = &entsql.Annotation{
+		Table: "account",
+	}
+	BlogCommentTable.ForeignKeys[0].RefTable = BlogCommentTable
+	BlogCommentTable.ForeignKeys[1].RefTable = BlogPostTable
+	BlogCommentTable.ForeignKeys[2].RefTable = UserTable
+	BlogCommentTable.Annotation = &entsql.Annotation{
+		Table: "blogComment",
+	}
+	BlogPostTable.ForeignKeys[0].RefTable = UserTable
+	BlogPostTable.Annotation = &entsql.Annotation{
+		Table: "blogPost",
+	}
+	CvDownloadLogTable.Annotation = &entsql.Annotation{
+		Table: "cvDownloadLog",
+	}
+	CertificateTable.Annotation = &entsql.Annotation{
+		Table: "certificate",
+	}
+	EducationTable.Annotation = &entsql.Annotation{
+		Table: "education",
+	}
+	ExperienceTable.Annotation = &entsql.Annotation{
+		Table: "experience",
+	}
+	MessageTable.Annotation = &entsql.Annotation{
+		Table: "message",
+	}
+	ProfileContentTable.Annotation = &entsql.Annotation{
+		Table: "profileContent",
+	}
+	ProjectTable.Annotation = &entsql.Annotation{
+		Table: "project",
+	}
+	ResumeAssetTable.Annotation = &entsql.Annotation{
+		Table: "resumeAsset",
+	}
+	SessionTable.ForeignKeys[0].RefTable = UserTable
+	SessionTable.Annotation = &entsql.Annotation{
+		Table: "session",
+	}
+	SkillTable.Annotation = &entsql.Annotation{
+		Table: "skill",
+	}
+	TestimonialTable.Annotation = &entsql.Annotation{
+		Table: "testimonial",
+	}
+	TwoFactorTable.ForeignKeys[0].RefTable = UserTable
+	TwoFactorTable.Annotation = &entsql.Annotation{
+		Table: "twoFactor",
+	}
+	UserTable.Annotation = &entsql.Annotation{
+		Table: "user",
+	}
+	VerificationTable.Annotation = &entsql.Annotation{
+		Table: "verification",
+	}
+	VisitorLogTable.Annotation = &entsql.Annotation{
+		Table: "visitorLog",
+	}
 }

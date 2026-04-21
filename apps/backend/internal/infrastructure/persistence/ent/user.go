@@ -16,22 +16,101 @@ import (
 type User struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
+	// Name holds the value of the "name" field.
+	Name string `json:"name,omitempty"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
-	// Name holds the value of the "name" field.
-	Name *string `json:"name,omitempty"`
-	// PasswordHash holds the value of the "password_hash" field.
-	PasswordHash string `json:"-"`
-	// Role holds the value of the "role" field.
-	Role string `json:"role,omitempty"`
-	// IsActive holds the value of the "is_active" field.
-	IsActive bool `json:"is_active,omitempty"`
+	// EmailVerified holds the value of the "email_verified" field.
+	EmailVerified bool `json:"email_verified,omitempty"`
+	// Image holds the value of the "image" field.
+	Image *string `json:"image,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// TwoFactorEnabled holds the value of the "two_factor_enabled" field.
+	TwoFactorEnabled *bool `json:"two_factor_enabled,omitempty"`
+	// BanExpires holds the value of the "ban_expires" field.
+	BanExpires *time.Time `json:"ban_expires,omitempty"`
+	// BanReason holds the value of the "ban_reason" field.
+	BanReason *string `json:"ban_reason,omitempty"`
+	// Banned holds the value of the "banned" field.
+	Banned *bool `json:"banned,omitempty"`
+	// DisplayUsername holds the value of the "display_username" field.
+	DisplayUsername *string `json:"display_username,omitempty"`
+	// IsAnonymous holds the value of the "is_anonymous" field.
+	IsAnonymous *bool `json:"is_anonymous,omitempty"`
+	// Role holds the value of the "role" field.
+	Role *string `json:"role,omitempty"`
+	// Username holds the value of the "username" field.
+	Username *string `json:"username,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges        UserEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// Accounts holds the value of the accounts edge.
+	Accounts []*Account `json:"accounts,omitempty"`
+	// BlogPosts holds the value of the blog_posts edge.
+	BlogPosts []*BlogPost `json:"blog_posts,omitempty"`
+	// ReviewedComments holds the value of the reviewed_comments edge.
+	ReviewedComments []*BlogComment `json:"reviewed_comments,omitempty"`
+	// Sessions holds the value of the sessions edge.
+	Sessions []*Session `json:"sessions,omitempty"`
+	// TwoFactors holds the value of the two_factors edge.
+	TwoFactors []*TwoFactor `json:"two_factors,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [5]bool
+}
+
+// AccountsOrErr returns the Accounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) AccountsOrErr() ([]*Account, error) {
+	if e.loadedTypes[0] {
+		return e.Accounts, nil
+	}
+	return nil, &NotLoadedError{edge: "accounts"}
+}
+
+// BlogPostsOrErr returns the BlogPosts value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) BlogPostsOrErr() ([]*BlogPost, error) {
+	if e.loadedTypes[1] {
+		return e.BlogPosts, nil
+	}
+	return nil, &NotLoadedError{edge: "blog_posts"}
+}
+
+// ReviewedCommentsOrErr returns the ReviewedComments value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ReviewedCommentsOrErr() ([]*BlogComment, error) {
+	if e.loadedTypes[2] {
+		return e.ReviewedComments, nil
+	}
+	return nil, &NotLoadedError{edge: "reviewed_comments"}
+}
+
+// SessionsOrErr returns the Sessions value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SessionsOrErr() ([]*Session, error) {
+	if e.loadedTypes[3] {
+		return e.Sessions, nil
+	}
+	return nil, &NotLoadedError{edge: "sessions"}
+}
+
+// TwoFactorsOrErr returns the TwoFactors value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) TwoFactorsOrErr() ([]*TwoFactor, error) {
+	if e.loadedTypes[4] {
+		return e.TwoFactors, nil
+	}
+	return nil, &NotLoadedError{edge: "two_factors"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -39,13 +118,11 @@ func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case user.FieldIsActive:
+		case user.FieldEmailVerified, user.FieldTwoFactorEnabled, user.FieldBanned, user.FieldIsAnonymous:
 			values[i] = new(sql.NullBool)
-		case user.FieldID:
-			values[i] = new(sql.NullInt64)
-		case user.FieldEmail, user.FieldName, user.FieldPasswordHash, user.FieldRole:
+		case user.FieldID, user.FieldName, user.FieldEmail, user.FieldImage, user.FieldBanReason, user.FieldDisplayUsername, user.FieldRole, user.FieldUsername:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldBanExpires:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -63,41 +140,35 @@ func (_m *User) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case user.FieldID:
-			value, ok := values[i].(*sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("unexpected type %T for field id", value)
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field id", values[i])
+			} else if value.Valid {
+				_m.ID = value.String
 			}
-			_m.ID = int(value.Int64)
+		case user.FieldName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field name", values[i])
+			} else if value.Valid {
+				_m.Name = value.String
+			}
 		case user.FieldEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field email", values[i])
 			} else if value.Valid {
 				_m.Email = value.String
 			}
-		case user.FieldName:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name", values[i])
-			} else if value.Valid {
-				_m.Name = new(string)
-				*_m.Name = value.String
-			}
-		case user.FieldPasswordHash:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field password_hash", values[i])
-			} else if value.Valid {
-				_m.PasswordHash = value.String
-			}
-		case user.FieldRole:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field role", values[i])
-			} else if value.Valid {
-				_m.Role = value.String
-			}
-		case user.FieldIsActive:
+		case user.FieldEmailVerified:
 			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field is_active", values[i])
+				return fmt.Errorf("unexpected type %T for field email_verified", values[i])
 			} else if value.Valid {
-				_m.IsActive = value.Bool
+				_m.EmailVerified = value.Bool
+			}
+		case user.FieldImage:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field image", values[i])
+			} else if value.Valid {
+				_m.Image = new(string)
+				*_m.Image = value.String
 			}
 		case user.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -111,6 +182,62 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
 			}
+		case user.FieldTwoFactorEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field two_factor_enabled", values[i])
+			} else if value.Valid {
+				_m.TwoFactorEnabled = new(bool)
+				*_m.TwoFactorEnabled = value.Bool
+			}
+		case user.FieldBanExpires:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field ban_expires", values[i])
+			} else if value.Valid {
+				_m.BanExpires = new(time.Time)
+				*_m.BanExpires = value.Time
+			}
+		case user.FieldBanReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ban_reason", values[i])
+			} else if value.Valid {
+				_m.BanReason = new(string)
+				*_m.BanReason = value.String
+			}
+		case user.FieldBanned:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field banned", values[i])
+			} else if value.Valid {
+				_m.Banned = new(bool)
+				*_m.Banned = value.Bool
+			}
+		case user.FieldDisplayUsername:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field display_username", values[i])
+			} else if value.Valid {
+				_m.DisplayUsername = new(string)
+				*_m.DisplayUsername = value.String
+			}
+		case user.FieldIsAnonymous:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_anonymous", values[i])
+			} else if value.Valid {
+				_m.IsAnonymous = new(bool)
+				*_m.IsAnonymous = value.Bool
+			}
+		case user.FieldRole:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field role", values[i])
+			} else if value.Valid {
+				_m.Role = new(string)
+				*_m.Role = value.String
+			}
+		case user.FieldUsername:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field username", values[i])
+			} else if value.Valid {
+				_m.Username = new(string)
+				*_m.Username = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -122,6 +249,31 @@ func (_m *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *User) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryAccounts queries the "accounts" edge of the User entity.
+func (_m *User) QueryAccounts() *AccountQuery {
+	return NewUserClient(_m.config).QueryAccounts(_m)
+}
+
+// QueryBlogPosts queries the "blog_posts" edge of the User entity.
+func (_m *User) QueryBlogPosts() *BlogPostQuery {
+	return NewUserClient(_m.config).QueryBlogPosts(_m)
+}
+
+// QueryReviewedComments queries the "reviewed_comments" edge of the User entity.
+func (_m *User) QueryReviewedComments() *BlogCommentQuery {
+	return NewUserClient(_m.config).QueryReviewedComments(_m)
+}
+
+// QuerySessions queries the "sessions" edge of the User entity.
+func (_m *User) QuerySessions() *SessionQuery {
+	return NewUserClient(_m.config).QuerySessions(_m)
+}
+
+// QueryTwoFactors queries the "two_factors" edge of the User entity.
+func (_m *User) QueryTwoFactors() *TwoFactorQuery {
+	return NewUserClient(_m.config).QueryTwoFactors(_m)
 }
 
 // Update returns a builder for updating this User.
@@ -147,27 +299,65 @@ func (_m *User) String() string {
 	var builder strings.Builder
 	builder.WriteString("User(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	builder.WriteString("name=")
+	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
 	builder.WriteString("email=")
 	builder.WriteString(_m.Email)
 	builder.WriteString(", ")
-	if v := _m.Name; v != nil {
-		builder.WriteString("name=")
+	builder.WriteString("email_verified=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EmailVerified))
+	builder.WriteString(", ")
+	if v := _m.Image; v != nil {
+		builder.WriteString("image=")
 		builder.WriteString(*v)
 	}
-	builder.WriteString(", ")
-	builder.WriteString("password_hash=<sensitive>")
-	builder.WriteString(", ")
-	builder.WriteString("role=")
-	builder.WriteString(_m.Role)
-	builder.WriteString(", ")
-	builder.WriteString("is_active=")
-	builder.WriteString(fmt.Sprintf("%v", _m.IsActive))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.TwoFactorEnabled; v != nil {
+		builder.WriteString("two_factor_enabled=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BanExpires; v != nil {
+		builder.WriteString("ban_expires=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.BanReason; v != nil {
+		builder.WriteString("ban_reason=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.Banned; v != nil {
+		builder.WriteString("banned=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.DisplayUsername; v != nil {
+		builder.WriteString("display_username=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.IsAnonymous; v != nil {
+		builder.WriteString("is_anonymous=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.Role; v != nil {
+		builder.WriteString("role=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.Username; v != nil {
+		builder.WriteString("username=")
+		builder.WriteString(*v)
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

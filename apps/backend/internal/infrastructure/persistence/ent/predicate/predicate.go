@@ -6,5 +6,56 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Account is the predicate function for account builders.
+type Account func(*sql.Selector)
+
+// BlogComment is the predicate function for blogcomment builders.
+type BlogComment func(*sql.Selector)
+
+// BlogPost is the predicate function for blogpost builders.
+type BlogPost func(*sql.Selector)
+
+// CVDownloadLog is the predicate function for cvdownloadlog builders.
+type CVDownloadLog func(*sql.Selector)
+
+// Certificate is the predicate function for certificate builders.
+type Certificate func(*sql.Selector)
+
+// Education is the predicate function for education builders.
+type Education func(*sql.Selector)
+
+// Experience is the predicate function for experience builders.
+type Experience func(*sql.Selector)
+
+// Message is the predicate function for message builders.
+type Message func(*sql.Selector)
+
+// ProfileContent is the predicate function for profilecontent builders.
+type ProfileContent func(*sql.Selector)
+
+// Project is the predicate function for project builders.
+type Project func(*sql.Selector)
+
+// ResumeAsset is the predicate function for resumeasset builders.
+type ResumeAsset func(*sql.Selector)
+
+// Session is the predicate function for session builders.
+type Session func(*sql.Selector)
+
+// Skill is the predicate function for skill builders.
+type Skill func(*sql.Selector)
+
+// Testimonial is the predicate function for testimonial builders.
+type Testimonial func(*sql.Selector)
+
+// TwoFactor is the predicate function for twofactor builders.
+type TwoFactor func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// Verification is the predicate function for verification builders.
+type Verification func(*sql.Selector)
+
+// VisitorLog is the predicate function for visitorlog builders.
+type VisitorLog func(*sql.Selector)
