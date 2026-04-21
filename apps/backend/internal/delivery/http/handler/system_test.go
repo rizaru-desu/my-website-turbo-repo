@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestRootReturnsProfessionalMetadata(t *testing.T) {
+func TestRootReturnsMinimalStatus(t *testing.T) {
 	systemHandler := NewSystemHandler("1.0.0", "development", stubHealthReporter{})
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -23,29 +23,19 @@ func TestRootReturnsProfessionalMetadata(t *testing.T) {
 		t.Fatalf("expected JSON content type, got %q", got)
 	}
 
-	var response serviceMetadata
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("expected valid JSON response, got error: %v", err)
 	}
 
-	if response.Name != "Portfolio Lightweight API" {
-		t.Fatalf("expected service name to be set, got %q", response.Name)
+	if response["status"] != "ok" {
+		t.Fatalf("expected generic ok status, got %v", response["status"])
 	}
 
-	if response.Version != "1.0.0" {
-		t.Fatalf("expected version 1.0.0, got %q", response.Version)
-	}
-
-	if response.Status != "operational" {
-		t.Fatalf("expected status operational, got %q", response.Status)
-	}
-
-	if response.Environment != "development" {
-		t.Fatalf("expected environment development, got %q", response.Environment)
-	}
-
-	if response.Endpoints["health"] != healthPath {
-		t.Fatalf("expected health endpoint metadata, got %q", response.Endpoints["health"])
+	for _, field := range []string{"name", "version", "environment", "description", "timestamp", "endpoints"} {
+		if _, exists := response[field]; exists {
+			t.Fatalf("expected root response not to expose %q", field)
+		}
 	}
 }
 

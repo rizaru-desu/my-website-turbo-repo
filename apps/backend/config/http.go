@@ -2,11 +2,13 @@ package config
 
 import (
 	"net/http"
+	"strings"
 
 	"api/internal/delivery/http/middleware"
 )
 
 const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+const developmentContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
 
 func DefaultSecurityConfig() middleware.SecurityConfig {
 	return middleware.SecurityConfig{
@@ -21,6 +23,15 @@ func DefaultSecurityConfig() middleware.SecurityConfig {
 		EnableStrictTransportSecurity: true,
 		StrictTransportSecurityMaxAge: "max-age=31536000; includeSubDomains",
 	}
+}
+
+func SecurityConfigForEnvironment(environment string) middleware.SecurityConfig {
+	config := DefaultSecurityConfig()
+	if strings.EqualFold(strings.TrimSpace(environment), "development") {
+		config.ContentSecurityPolicy = developmentContentSecurityPolicy
+	}
+
+	return config
 }
 
 func DefaultCORSConfig() middleware.CORSConfig {

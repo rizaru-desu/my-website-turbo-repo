@@ -3,19 +3,12 @@ package handler
 import (
 	systemusecase "api/internal/usecase/system"
 	"net/http"
-	"time"
 )
 
 const healthPath = "/api/v1/health"
 
-type serviceMetadata struct {
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Status      string            `json:"status"`
-	Environment string            `json:"environment"`
-	Description string            `json:"description"`
-	Timestamp   string            `json:"timestamp"`
-	Endpoints   map[string]string `json:"endpoints"`
+type rootResponse struct {
+	Status string `json:"status"`
 }
 
 type healthResponse struct {
@@ -43,20 +36,7 @@ func (h *SystemHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *SystemHandler) Root(w http.ResponseWriter, r *http.Request) {
-	response := serviceMetadata{
-		Name:        "Portfolio Lightweight API",
-		Version:     h.version,
-		Status:      "operational",
-		Environment: h.environment,
-		Description: "Lightweight backend service for the portfolio platform and admin workspace, optimized for low-resource home lab deployments.",
-		Timestamp:   time.Now().UTC().Format(time.RFC3339),
-		Endpoints: map[string]string{
-			"self":   "/",
-			"health": healthPath,
-		},
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, http.StatusOK, rootResponse{Status: "ok"})
 }
 
 func (h *SystemHandler) Health(w http.ResponseWriter, r *http.Request) {

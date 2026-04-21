@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"api/config"
@@ -43,11 +44,15 @@ func main() {
 func newHandler() http.Handler {
 	mux := http.NewServeMux()
 
+	environment := appEnvironment()
 	metricsProvider := monitoringinfra.NewLinuxMetricsProvider()
-	systemHandler := httpHandler.NewSystemHandler(version, appEnvironment(), systemusecase.NewHealthService(time.Now(), appStoragePath(), metricsProvider))
+	systemHandler := httpHandler.NewSystemHandler(version, environment, systemusecase.NewHealthService(time.Now(), appStoragePath(), metricsProvider))
 	systemHandler.RegisterRoutes(mux)
+	if isDevelopmentEnvironment(environment) {
+		httpHandler.NewSwaggerHandler(version).RegisterRoutes(mux)
+	}
 
-	securityConfig := config.DefaultSecurityConfig()
+	securityConfig := config.SecurityConfigForEnvironment(environment)
 	corsConfig := config.DefaultCORSConfig()
 
 	// Apply CORS before security headers so preflight requests are answered cleanly.
@@ -81,6 +86,10 @@ func appEnvironment() string {
 	}
 
 	return "development"
+}
+
+func isDevelopmentEnvironment(environment string) bool {
+	return strings.EqualFold(strings.TrimSpace(environment), "development")
 }
 
 func appStoragePath() string {
