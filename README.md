@@ -69,17 +69,31 @@ graph LR
 git clone https://github.com/rizaru-desu/my-website-turbo-repo.git
 cd my-website-turbo-repo
 
-# Build & Run Backend (The Go Way)
-cd apps/backend
-go build -o main ./cmd/api
-./main
+# Install workspace dependencies
+pnpm install
 
-# Build & Serve Frontend
-cd ../../
-npm install
-cd apps/frontend/admin
-npm run build
+# Standard monorepo build with Turbo
+pnpm build
+
+# Build all apps and output a Linux amd64 backend binary
+pnpm build:linux
+
+# Build specifically for Armbian / Linux ARM64
+pnpm build:linux:arm64
+
+# Native backend build only
+pnpm --filter api run build
+
+# Run the native backend binary
+./apps/backend/bin/server
 ```
+
+Build artifacts:
+
+- `pnpm build` keeps the regular Turbo workflow for the monorepo.
+- `pnpm build:linux` builds both Vite frontends and emits `apps/backend/bin/server-linux-amd64`.
+- `pnpm build:linux:arm64` builds both Vite frontends and emits `apps/backend/bin/server-linux-arm64`.
+- `pnpm --filter api run build` emits the host-native backend binary at `apps/backend/bin/server`.
 
 ---
 
@@ -125,6 +139,34 @@ The active middleware currently includes:
 - `Strict-Transport-Security` only for HTTPS requests or HTTPS-aware proxy requests
 - an `Access-Control-Allow-Origin` whitelist for allowed local frontend origins
 
+## 🗄️ `>_ BACKEND_DATABASE_MIGRATIONS`
+
+The backend uses Ent for typed PostgreSQL access, but automatic schema migration is disabled by default. Keep `DB_AUTO_MIGRATE=false` for staging and production so database changes are applied through reviewed versioned SQL files.
+
+Migration layout:
+
+- Ent schemas live in `apps/backend/internal/infrastructure/persistence/ent/schema`.
+- Generated Ent clients live in `apps/backend/internal/infrastructure/persistence/ent`.
+- Versioned SQL migrations live in `apps/backend/internal/infrastructure/persistence/migrations`.
+- `apps/backend/atlas.hcl` documents the local Atlas migration environment.
+
+Common workflow:
+
+```bash
+cd apps/backend
+
+# Regenerate Ent client after schema changes
+pnpm run ent:generate
+
+# Create a new versioned migration with Atlas CLI
+pnpm run migrate:diff -- add_next_change
+
+# Apply migrations to DATABASE_URL from .env
+pnpm run migrate:apply
+```
+
+`migrate:diff` uses `docker://postgres/15/dev?search_path=public` as the default dev database. Override it with `ATLAS_DEV_URL` if Docker is unavailable or if you prefer a local scratch database.
+
 Backend verification can be run with:
 
 ```bash
@@ -150,6 +192,15 @@ env GOCACHE=/tmp/go-build-cache go test ./...
 - [ ] **Secure Session:** Migrate token storage to `HttpOnly` and `Secure` cookies to prevent token theft via script injection.
 - [ ] **Dependency Audit:** Run `npm audit` and prune unused or vulnerable packages from `node_modules`.
 - [ ] **Input Sanitization:** Ensure all user-generated content is sanitized before rendering to prevent DOM-based XSS.
+
+---
+
+### 📊 System Monitoring & Health (STB Specific)
+
+- [ ] **Resource Metrics:** Implement local system calls to fetch CPU and RAM usage percentage.
+- [ ] **Storage Watcher:** Add disk space monitoring to prevent OOM or write failures on STB internal storage.
+- [ ] **Formatted Output:** Create a helper to convert bytes into human-readable formats (MB, GB).
+- [x] **Health Endpoint:** Expose a protected `/api/v1/health` route for real-time monitoring dashboard.
 
 ---
 

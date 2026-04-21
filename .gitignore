@@ -26,6 +26,8 @@ coverage
 out/
 build
 dist
+apps/**/dist/
+apps/**/build/
 
 
 # Debug
@@ -40,6 +42,7 @@ yarn-error.log*
 # Go backend
 apps/backend/tmp/
 apps/backend/bin/
+apps/backend/bin/**
 apps/backend/*.exe
 apps/backend/*.exe~
 apps/backend/*.dll

@@ -4,7 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "~/go/bin/air",
-    "build": "go build -o bin/server ./cmd/api/main.go",
+    "build": "sh ./scripts/build.sh",
+    "build:linux": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 sh ./scripts/build.sh",
+    "build:linux:arm64": "CGO_ENABLED=0 GOOS=linux GOARCH=arm64 sh ./scripts/build.sh",
+    "ent:generate": "go generate ./internal/infrastructure/persistence/ent",
+    "migrate:diff": "sh ./scripts/migrate-diff.sh",
+    "migrate:apply": "sh ./scripts/migrate-apply.sh",
     "test": "go test -race -v ./...",
     "lint": "go fmt ./...",
     "check-types": "go vet ./..."

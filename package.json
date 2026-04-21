@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "build:linux": "sh ./scripts/build-linux.sh amd64",
+    "build:linux:arm64": "sh ./scripts/build-linux.sh arm64",
     "dev": "pnpm --parallel --filter ./apps/backend --filter ./apps/frontend/admin --filter ./apps/frontend/public run dev",
     "dev:api": "pnpm --filter ./apps/backend run dev",
     "dev:web": "pnpm --parallel --filter ./apps/frontend/admin --filter ./apps/frontend/public run dev",
