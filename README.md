@@ -108,7 +108,6 @@ To ensure the platform remains secure despite running on low-resource hardware, 
 - **Cryptographic Failures:** Utilizing Argon2 or BCrypt for secure password hashing and enforcing TLS for data in transit.
 - **Security Misconfiguration:** Implementing lightweight HTTP middleware for secure headers and strict CORS without adding heavy framework overhead.
 - **Information Disclosure Reduction:** The API root only returns a generic health signal (`{"status":"ok"}`) and does not expose version, environment, endpoint inventory, timestamps, or deployment metadata.
-- **Development-Only API Docs:** Swagger UI is registered only when `APP_ENV=development`, keeping interactive documentation unavailable in staging and production.
 
 ### 2. 🎨 Frontend Security (OWASP ASVS Standard)
 
@@ -145,16 +144,6 @@ Runtime routes:
 
 - `GET /` returns only `{"status":"ok"}` to avoid exposing implementation details.
 - `GET /api/v1/health` returns the backend health snapshot for observability.
-- `GET /swagger/` and `GET /swagger/doc.json` are available only in `APP_ENV=development`.
-
-Swagger documentation is generated from Go annotations with `swaggo/swag`, not maintained as a hand-written JSON map. After adding or changing an API handler annotation, regenerate the docs with:
-
-```bash
-cd apps/backend
-pnpm run docs:generate
-```
-
-Generated docs are stored in `apps/backend/docs` and served by `swaggo/http-swagger` only when the app runs in development mode.
 
 ## 🗄️ `>_ BACKEND_DATABASE_MIGRATIONS`
 

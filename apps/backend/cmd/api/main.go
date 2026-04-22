@@ -12,18 +12,17 @@ import (
 	"api/config"
 	httpHandler "api/internal/delivery/http/handler"
 	"api/internal/delivery/http/middleware"
+	authinfra "api/internal/infrastructure/auth"
 	monitoringinfra "api/internal/infrastructure/monitoring"
+	authstore "api/internal/infrastructure/persistence/auth"
 	"api/internal/infrastructure/persistence/ent"
 	postgresinfra "api/internal/infrastructure/persistence/postgres"
+	authusecase "api/internal/usecase/auth"
 	systemusecase "api/internal/usecase/system"
 )
 
 var version = "1.0.0"
 
-// @title			Portfolio Lightweight API
-// @version		1.0.0
-// @description	Lightweight backend service for the portfolio platform and admin workspace.
-// @BasePath		/
 func main() {
 	if err := config.LoadAppEnv(); err != nil {
 		log.Fatal("Gagal memuat konfigurasi environment:", err)
@@ -37,7 +36,7 @@ func main() {
 		defer databaseClient.Close()
 	}
 
-	handler := newHandler()
+	handler := newHandler(databaseClient)
 
 	log.Println("Server berjalan di http://localhost:3333")
 	if err := http.ListenAndServe(":3333", handler); err != nil {
@@ -45,22 +44,79 @@ func main() {
 	}
 }
 
-func newHandler() http.Handler {
+func newHandler(databaseClients ...*ent.Client) http.Handler {
 	mux := http.NewServeMux()
 
 	environment := appEnvironment()
+	authConfig := config.LoadAuthConfig(environment)
+	databaseClient := optionalDatabaseClient(databaseClients...)
+
 	metricsProvider := monitoringinfra.NewLinuxMetricsProvider()
 	systemHandler := httpHandler.NewSystemHandler(version, environment, systemusecase.NewHealthService(time.Now(), appStoragePath(), metricsProvider))
 	systemHandler.RegisterRoutes(mux)
-	if isDevelopmentEnvironment(environment) {
-		httpHandler.NewSwaggerHandler().RegisterRoutes(mux)
-	}
+	authHandler := httpHandler.NewAuthHandler(
+		newAuthService(databaseClient, authConfig),
+		httpHandler.AuthCookieConfig{
+			Name:     authConfig.Cookie.Name,
+			Path:     authConfig.Cookie.Path,
+			Domain:   authConfig.Cookie.Domain,
+			Secure:   authConfig.Cookie.Secure,
+			HTTPOnly: authConfig.Cookie.HTTPOnly,
+			SameSite: authConfig.Cookie.SameSite,
+		},
+	)
+	authHandler.RegisterRoutes(mux)
+
 
 	securityConfig := config.SecurityConfigForEnvironment(environment)
 	corsConfig := config.DefaultCORSConfig()
 
 	// Apply CORS before security headers so preflight requests are answered cleanly.
 	return middleware.NewCORS(corsConfig)(middleware.NewSecurityHeaders(securityConfig)(mux))
+}
+
+func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *authusecase.Service {
+	clock := authinfra.SystemClock{}
+	return authusecase.NewService(
+		authstore.NewEntCredentialRepository(databaseClient),
+		authstore.NewEntSessionRepository(databaseClient, clock.Now),
+		authinfra.NewJWTManager(authConfig.JWTSecret, authConfig.Issuer),
+		authinfra.NewPasswordVerifier(authConfig.Secret),
+		authinfra.CryptoIDGenerator{},
+		clock,
+		authusecase.Options{
+			Issuer:         authConfig.Issuer,
+			AccessTokenTTL: authConfig.AccessTokenTTL,
+			RememberMeTTL:  authConfig.RememberMeTTL,
+			Cookie: authusecase.CookieOptions{
+				Name:     authConfig.Cookie.Name,
+				Secure:   authConfig.Cookie.Secure,
+				HTTPOnly: authConfig.Cookie.HTTPOnly,
+				SameSite: sameSiteString(authConfig.Cookie.SameSite),
+			},
+		},
+	)
+}
+
+func optionalDatabaseClient(databaseClients ...*ent.Client) *ent.Client {
+	if len(databaseClients) == 0 {
+		return nil
+	}
+
+	return databaseClients[0]
+}
+
+func sameSiteString(value http.SameSite) string {
+	switch value {
+	case http.SameSiteStrictMode:
+		return "strict"
+	case http.SameSiteNoneMode:
+		return "none"
+	case http.SameSiteLaxMode:
+		return "lax"
+	default:
+		return "default"
+	}
 }
 
 func newDatabaseClient(ctx context.Context) (*ent.Client, error) {

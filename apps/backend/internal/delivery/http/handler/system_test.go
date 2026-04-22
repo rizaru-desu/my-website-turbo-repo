@@ -39,6 +39,39 @@ func TestRootReturnsMinimalStatus(t *testing.T) {
 	}
 }
 
+func TestAPIIndexReturnsProfessionalEndpointCatalog(t *testing.T) {
+	systemHandler := NewSystemHandler("1.0.0", "development", stubHealthReporter{})
+	req := httptest.NewRequest(http.MethodGet, apiBasePath, nil)
+	rec := httptest.NewRecorder()
+
+	systemHandler.APIIndex(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var response APIIndexResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("expected valid JSON response, got error: %v", err)
+	}
+
+	if response.Name != "Portfolio Lightweight API" {
+		t.Fatalf("expected API name, got %q", response.Name)
+	}
+	if response.Version != "1.0.0" {
+		t.Fatalf("expected version 1.0.0, got %q", response.Version)
+	}
+	if response.Environment != "development" {
+		t.Fatalf("expected development environment, got %q", response.Environment)
+	}
+	if response.BasePath != apiBasePath {
+		t.Fatalf("expected base path %q, got %q", apiBasePath, response.BasePath)
+	}
+	if len(response.Endpoints) == 0 {
+		t.Fatal("expected endpoint catalog to be populated")
+	}
+}
+
 func TestHealthReturnsOK(t *testing.T) {
 	systemHandler := NewSystemHandler("1.0.0", "development", stubHealthReporter{})
 	req := httptest.NewRequest(http.MethodGet, healthPath, nil)
