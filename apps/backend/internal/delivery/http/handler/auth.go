@@ -19,6 +19,8 @@ type AuthService interface {
 	Logout(ctx context.Context, token string) error
 	VerifyToken(ctx context.Context, token string) (authusecase.TokenClaims, error)
 	ForgotPassword(ctx context.Context, command authusecase.ForgotPasswordCommand) error
+	SendVerificationEmail(ctx context.Context, command authusecase.SendVerificationEmailCommand) error
+	VerifyEmail(ctx context.Context, command authusecase.VerifyEmailCommand) (authusecase.VerifyEmailResult, error)
 	SetupTOTP(ctx context.Context, userID string) (authusecase.SetupTOTPResult, error)
 	EnableTOTP(ctx context.Context, command authusecase.EnableTOTPCommand) error
 	DisableTOTP(ctx context.Context, command authusecase.DisableTOTPCommand) error
@@ -48,6 +50,11 @@ type LoginRequest struct {
 
 type ForgotPasswordRequest struct {
 	Email string `json:"email"`
+}
+
+type SendVerificationEmailRequest struct {
+	Email       string `json:"email"`
+	CallbackURL string `json:"callback_url"`
 }
 
 type VerifyTOTPRequest struct {
@@ -97,6 +104,8 @@ func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+authPath+"/logout", h.Logout)
 	mux.HandleFunc("GET "+authPath+"/me", h.Me)
 	mux.HandleFunc("POST "+authPath+"/forgot-password", h.ForgotPassword)
+	mux.HandleFunc("POST "+authPath+"/email-verification", h.SendVerificationEmail)
+	mux.HandleFunc("GET "+authPath+"/verify-email", h.VerifyEmail)
 	mux.HandleFunc("POST "+authPath+"/2fa/setup", h.SetupTOTP)
 	mux.HandleFunc("POST "+authPath+"/2fa/enable", h.EnableTOTP)
 	mux.HandleFunc("POST "+authPath+"/2fa/disable", h.DisableTOTP)
@@ -225,6 +234,71 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "if the email exists, a reset link has been sent"})
+}
+
+func (h *AuthHandler) SendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
+	var payload SendVerificationEmailRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	email := strings.TrimSpace(payload.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "valid email is required"})
+		return
+	}
+
+	err := h.service.SendVerificationEmail(r.Context(), authusecase.SendVerificationEmailCommand{
+		Email:       email,
+		CallbackURL: strings.TrimSpace(payload.CallbackURL),
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidCallbackURL) {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, ErrorResponse{Error: emailVerificationErrorMessage(err)})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "if the email exists, a verification link has been sent"})
+}
+
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
+	query := r.URL.Query()
+	result, err := h.service.VerifyEmail(r.Context(), authusecase.VerifyEmailCommand{
+		Email:       strings.TrimSpace(query.Get("email")),
+		Token:       strings.TrimSpace(query.Get("token")),
+		CallbackURL: strings.TrimSpace(firstQueryValue(query.Get("callback_url"), query.Get("callbackUrl"))),
+	})
+	if err != nil {
+		status := http.StatusBadRequest
+		if !errors.Is(err, authusecase.ErrInvalidToken) && !errors.Is(err, authusecase.ErrInvalidCallbackURL) {
+			status = http.StatusInternalServerError
+		}
+		writeJSON(w, status, ErrorResponse{Error: emailVerificationErrorMessage(err)})
+		return
+	}
+
+	if result.RedirectURL != "" {
+		http.Redirect(w, r, result.RedirectURL, http.StatusSeeOther)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *AuthHandler) authCookie(token string, expiresAt time.Time, ttl time.Duration) *http.Cookie {
@@ -429,4 +503,25 @@ func authErrorMessage(err error) string {
 	default:
 		return "failed to authenticate"
 	}
+}
+
+func emailVerificationErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, authusecase.ErrInvalidCallbackURL):
+		return "invalid callback url"
+	case errors.Is(err, authusecase.ErrInvalidToken):
+		return "invalid or expired verification token"
+	default:
+		return "failed to verify email"
+	}
+}
+
+func firstQueryValue(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+
+	return ""
 }

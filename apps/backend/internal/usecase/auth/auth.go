@@ -2,9 +2,14 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -17,11 +22,13 @@ var (
 	ErrInvalidTOTPCode    = errors.New("invalid totp code")
 	ErrTwoFactorNotSetup  = errors.New("two factor not configured")
 	ErrTwoFactorExists    = errors.New("two factor already enabled")
+	ErrInvalidCallbackURL = errors.New("invalid callback url")
 )
 
 type CredentialRepository interface {
 	FindByEmail(ctx context.Context, email string) (CredentialAccount, error)
 	FindByUserID(ctx context.Context, userID string) (CredentialAccount, error)
+	MarkEmailVerified(ctx context.Context, userID string) error
 }
 
 type SessionRepository interface {
@@ -61,6 +68,7 @@ type CredentialAccount struct {
 	UserID           string
 	Name             string
 	Email            string
+	EmailVerified    bool
 	Role             string
 	PasswordHash     string
 	Active           bool
@@ -107,13 +115,13 @@ type LoginCommand struct {
 }
 
 type LoginResult struct {
-	Token              string
-	User               AuthenticatedUser
-	ExpiresAt          time.Time
-	ExpiresIn          time.Duration
-	RememberMe         bool
-	RequiresTwoFactor  bool
-	TwoFactorToken     string
+	Token             string
+	User              AuthenticatedUser
+	ExpiresAt         time.Time
+	ExpiresIn         time.Duration
+	RememberMe        bool
+	RequiresTwoFactor bool
+	TwoFactorToken    string
 }
 
 type AuthenticatedUser struct {
@@ -127,12 +135,31 @@ type ForgotPasswordCommand struct {
 	Email string
 }
 
+type SendVerificationEmailCommand struct {
+	Email       string
+	CallbackURL string
+}
+
+type VerifyEmailCommand struct {
+	Email       string
+	Token       string
+	CallbackURL string
+}
+
+type VerifyEmailResult struct {
+	Email       string `json:"email"`
+	RedirectURL string `json:"redirect_url,omitempty"`
+	Verified    bool   `json:"verified"`
+}
+
 type Options struct {
-	Issuer         string
-	AccessTokenTTL time.Duration
-	RememberMeTTL  time.Duration
-	ResetTokenTTL  time.Duration
-	FrontendURL    string
+	Issuer               string
+	AccessTokenTTL       time.Duration
+	RememberMeTTL        time.Duration
+	ResetTokenTTL        time.Duration
+	EmailVerificationTTL time.Duration
+	FrontendURL          string
+	BackendURL           string
 }
 
 type Service struct {
@@ -153,6 +180,9 @@ func NewService(credentials CredentialRepository, sessions SessionRepository, to
 	if options.ResetTokenTTL == 0 {
 		options.ResetTokenTTL = 15 * time.Minute
 	}
+	if options.EmailVerificationTTL == 0 {
+		options.EmailVerificationTTL = 24 * time.Hour
+	}
 
 	return &Service{
 		credentials: credentials,
@@ -166,9 +196,9 @@ func NewService(credentials CredentialRepository, sessions SessionRepository, to
 }
 
 func (s *Service) SetVerifications(repo VerificationRepository) { s.verifications = repo }
-func (s *Service) SetMailSender(sender MailSender)               { s.mail = sender }
+func (s *Service) SetMailSender(sender MailSender)              { s.mail = sender }
 func (s *Service) SetTwoFactors(repo TwoFactorRepository)       { s.twoFactors = repo }
-func (s *Service) SetTOTP(manager TOTPManager)                   { s.totp = manager }
+func (s *Service) SetTOTP(manager TOTPManager)                  { s.totp = manager }
 
 func (s *Service) Login(ctx context.Context, command LoginCommand) (LoginResult, error) {
 	account, err := s.credentials.FindByEmail(ctx, command.Email)
@@ -198,7 +228,7 @@ func (s *Service) Login(ctx context.Context, command LoginCommand) (LoginResult,
 
 		return LoginResult{
 			RequiresTwoFactor: true,
-			TwoFactorToken:   twoFactorToken,
+			TwoFactorToken:    twoFactorToken,
 		}, nil
 	}
 
@@ -350,6 +380,130 @@ func (s *Service) ForgotPassword(ctx context.Context, command ForgotPasswordComm
 
 	log.Printf("forgot password: reset email sent to %s", account.Email)
 	return nil
+}
+
+func (s *Service) SendVerificationEmail(ctx context.Context, command SendVerificationEmailCommand) error {
+	if s.verifications == nil || s.mail == nil {
+		return fmt.Errorf("email verification is not configured")
+	}
+
+	email := strings.TrimSpace(command.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		return ErrEmailNotFound
+	}
+
+	callbackURL, err := s.normalizeCallbackURL(command.CallbackURL)
+	if err != nil {
+		return err
+	}
+
+	account, err := s.credentials.FindByEmail(ctx, email)
+	if err != nil {
+		log.Printf("email verification: email %q not found (silent)", email)
+		return nil
+	}
+
+	if !account.Active || account.EmailVerified {
+		return nil
+	}
+
+	identifier := "email_verification:" + account.Email
+	_ = s.verifications.DeleteByIdentifier(ctx, identifier)
+
+	now := s.clock.Now().UTC()
+	expiresAt := now.Add(s.options.EmailVerificationTTL)
+	verificationToken := s.ids.NewID()
+
+	value, err := json.Marshal(emailVerificationValue{
+		Token:       verificationToken,
+		UserID:      account.UserID,
+		Email:       account.Email,
+		CallbackURL: callbackURL,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal verification token: %w", err)
+	}
+
+	if err := s.verifications.Create(ctx, s.ids.NewID(), identifier, string(value), expiresAt); err != nil {
+		return fmt.Errorf("create email verification token: %w", err)
+	}
+
+	verificationURL, err := s.emailVerificationURL(account.Email, verificationToken, callbackURL)
+	if err != nil {
+		return fmt.Errorf("build verification url: %w", err)
+	}
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:32px">
+  <div style="max-width:480px;margin:0 auto">
+    <h2 style="color:#ffffff;border-bottom:1px solid #333;padding-bottom:12px">VERIFY YOUR EMAIL</h2>
+    <p>Hello <strong>%s</strong>,</p>
+    <p>Please verify your email address for your account. Click the link below to continue:</p>
+    <p style="margin:24px 0">
+      <a href="%s" style="background:#ffffff;color:#0a0a0a;padding:10px 20px;text-decoration:none;font-weight:bold;display:inline-block">VERIFY EMAIL</a>
+    </p>
+    <p style="color:#888;font-size:12px">This link expires in %d minutes. If you did not request this, ignore this email.</p>
+    <hr style="border-color:#333">
+    <p style="color:#555;font-size:11px">Portfolio Admin System</p>
+  </div>
+</body>
+</html>`, html.EscapeString(account.Name), html.EscapeString(verificationURL), int(s.options.EmailVerificationTTL.Minutes()))
+
+	if err := s.mail.Send(account.Email, "Verify Your Email", htmlBody); err != nil {
+		return fmt.Errorf("send verification email: %w", err)
+	}
+
+	log.Printf("email verification: verification email sent to %s", account.Email)
+	return nil
+}
+
+func (s *Service) VerifyEmail(ctx context.Context, command VerifyEmailCommand) (VerifyEmailResult, error) {
+	email := strings.TrimSpace(command.Email)
+	token := strings.TrimSpace(command.Token)
+	if email == "" || token == "" || s.verifications == nil {
+		return VerifyEmailResult{}, ErrInvalidToken
+	}
+
+	value, err := s.verifications.FindByIdentifier(ctx, "email_verification:"+email)
+	if err != nil {
+		return VerifyEmailResult{}, ErrInvalidToken
+	}
+
+	var stored emailVerificationValue
+	if err := json.Unmarshal([]byte(value), &stored); err != nil {
+		return VerifyEmailResult{}, ErrInvalidToken
+	}
+
+	if !strings.EqualFold(stored.Email, email) || !sameToken(stored.Token, token) {
+		return VerifyEmailResult{}, ErrInvalidToken
+	}
+
+	account, err := s.credentials.FindByEmail(ctx, email)
+	if err != nil || account.UserID != stored.UserID {
+		return VerifyEmailResult{}, ErrInvalidToken
+	}
+
+	redirectURL := stored.CallbackURL
+	if strings.TrimSpace(command.CallbackURL) != "" {
+		redirectURL, err = s.normalizeCallbackURL(command.CallbackURL)
+		if err != nil {
+			return VerifyEmailResult{}, err
+		}
+	}
+
+	if err := s.credentials.MarkEmailVerified(ctx, stored.UserID); err != nil {
+		return VerifyEmailResult{}, fmt.Errorf("mark email verified: %w", err)
+	}
+
+	_ = s.verifications.DeleteByIdentifier(ctx, "email_verification:"+email)
+
+	return VerifyEmailResult{
+		Email:       account.Email,
+		RedirectURL: redirectURL,
+		Verified:    true,
+	}, nil
 }
 
 func (s *Service) SetupTOTP(ctx context.Context, userID string) (SetupTOTPResult, error) {
@@ -542,4 +696,83 @@ func (s *Service) RegenerateBackupCodes(ctx context.Context, command RegenerateB
 
 func (s *Service) credentialsByUserID(ctx context.Context, userID string) (CredentialAccount, error) {
 	return s.credentials.FindByUserID(ctx, userID)
+}
+
+type emailVerificationValue struct {
+	Token       string `json:"token"`
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	CallbackURL string `json:"callback_url,omitempty"`
+}
+
+func (s *Service) emailVerificationURL(email string, token string, callbackURL string) (string, error) {
+	baseURL := strings.TrimRight(s.options.BackendURL, "/")
+	if baseURL == "" {
+		baseURL = strings.TrimRight(s.options.FrontendURL, "/")
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:3333"
+	}
+
+	verificationURL, err := url.Parse(baseURL + "/api/v1/auth/verify-email")
+	if err != nil {
+		return "", err
+	}
+
+	query := verificationURL.Query()
+	query.Set("email", email)
+	query.Set("token", token)
+	if callbackURL != "" {
+		query.Set("callback_url", callbackURL)
+	}
+	verificationURL.RawQuery = query.Encode()
+
+	return verificationURL.String(), nil
+}
+
+func (s *Service) normalizeCallbackURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+
+	frontendURL := strings.TrimRight(s.options.FrontendURL, "/")
+	if frontendURL == "" {
+		return "", ErrInvalidCallbackURL
+	}
+
+	frontendBase, err := url.Parse(frontendURL)
+	if err != nil || frontendBase.Scheme == "" || frontendBase.Host == "" {
+		return "", ErrInvalidCallbackURL
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", ErrInvalidCallbackURL
+	}
+
+	if !parsed.IsAbs() {
+		if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") {
+			return "", ErrInvalidCallbackURL
+		}
+
+		return frontendBase.ResolveReference(parsed).String(), nil
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", ErrInvalidCallbackURL
+	}
+	if !strings.EqualFold(parsed.Scheme, frontendBase.Scheme) || !strings.EqualFold(parsed.Host, frontendBase.Host) {
+		return "", ErrInvalidCallbackURL
+	}
+
+	return parsed.String(), nil
+}
+
+func sameToken(expected string, actual string) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1
 }

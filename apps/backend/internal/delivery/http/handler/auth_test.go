@@ -12,9 +12,14 @@ import (
 )
 
 type stubAuthService struct {
-	result      authusecase.LoginResult
-	logoutToken *string
-	verifyToken *string
+	result                   authusecase.LoginResult
+	logoutToken              *string
+	verifyToken              *string
+	verificationEmail        *authusecase.SendVerificationEmailCommand
+	verifyEmailCommand       *authusecase.VerifyEmailCommand
+	verifyEmailResult        authusecase.VerifyEmailResult
+	sendVerificationEmailErr error
+	verifyEmailErr           error
 }
 
 func (s stubAuthService) Login(context.Context, authusecase.LoginCommand) (authusecase.LoginResult, error) {
@@ -31,6 +36,22 @@ func (s stubAuthService) Logout(_ context.Context, token string) error {
 
 func (s stubAuthService) ForgotPassword(context.Context, authusecase.ForgotPasswordCommand) error {
 	return nil
+}
+
+func (s stubAuthService) SendVerificationEmail(_ context.Context, command authusecase.SendVerificationEmailCommand) error {
+	if s.verificationEmail != nil {
+		*s.verificationEmail = command
+	}
+
+	return s.sendVerificationEmailErr
+}
+
+func (s stubAuthService) VerifyEmail(_ context.Context, command authusecase.VerifyEmailCommand) (authusecase.VerifyEmailResult, error) {
+	if s.verifyEmailCommand != nil {
+		*s.verifyEmailCommand = command
+	}
+
+	return s.verifyEmailResult, s.verifyEmailErr
 }
 
 func (s stubAuthService) VerifyToken(_ context.Context, token string) (authusecase.TokenClaims, error) {
@@ -203,5 +224,49 @@ func TestAuthMeUsesCookieSession(t *testing.T) {
 	}
 	if verifyToken != "jwt-token" {
 		t.Fatalf("expected cookie token to be verified, got %q", verifyToken)
+	}
+}
+
+func TestSendVerificationEmailPassesCallbackToService(t *testing.T) {
+	command := authusecase.SendVerificationEmailCommand{}
+	handler := NewAuthHandler(stubAuthService{verificationEmail: &command}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/email-verification", strings.NewReader(`{"email":" admin@example.com ","callback_url":"/dashboard"}`))
+	rec := httptest.NewRecorder()
+
+	handler.SendVerificationEmail(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if command.Email != "admin@example.com" || command.CallbackURL != "/dashboard" {
+		t.Fatalf("unexpected verification command: %#v", command)
+	}
+}
+
+func TestVerifyEmailRedirectsToCallback(t *testing.T) {
+	command := authusecase.VerifyEmailCommand{}
+	handler := NewAuthHandler(stubAuthService{
+		verifyEmailCommand: &command,
+		verifyEmailResult: authusecase.VerifyEmailResult{
+			Email:       "admin@example.com",
+			RedirectURL: "https://portfolio.example/dashboard",
+			Verified:    true,
+		},
+	}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodGet, authPath+"/verify-email?email=admin@example.com&token=abc&callback_url=/dashboard", nil)
+	rec := httptest.NewRecorder()
+
+	handler.VerifyEmail(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect status, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if location := rec.Header().Get("Location"); location != "https://portfolio.example/dashboard" {
+		t.Fatalf("expected redirect location, got %q", location)
+	}
+	if command.Email != "admin@example.com" || command.Token != "abc" || command.CallbackURL != "/dashboard" {
+		t.Fatalf("unexpected verify command: %#v", command)
 	}
 }

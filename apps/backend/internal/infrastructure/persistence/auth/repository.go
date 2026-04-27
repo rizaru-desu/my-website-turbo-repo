@@ -63,6 +63,7 @@ func (r *EntCredentialRepository) FindByEmail(ctx context.Context, email string)
 		UserID:           record.ID,
 		Name:             record.Name,
 		Email:            record.Email,
+		EmailVerified:    record.EmailVerified,
 		Role:             userRole(record),
 		PasswordHash:     *accounts[0].Password,
 		Active:           userActive(record, time.Now()),
@@ -98,11 +99,25 @@ func (r *EntCredentialRepository) FindByUserID(ctx context.Context, userID strin
 		UserID:           record.ID,
 		Name:             record.Name,
 		Email:            record.Email,
+		EmailVerified:    record.EmailVerified,
 		Role:             userRole(record),
 		PasswordHash:     *accounts[0].Password,
 		Active:           userActive(record, time.Now()),
 		TwoFactorEnabled: userTwoFactorEnabled(record),
 	}, nil
+}
+
+func (r *EntCredentialRepository) MarkEmailVerified(ctx context.Context, userID string) error {
+	if r.client == nil {
+		return fmt.Errorf("auth database client is not configured")
+	}
+
+	_, err := r.client.User.Update().
+		Where(user.IDEQ(userID)).
+		SetEmailVerified(true).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx)
+	return err
 }
 
 func (r *EntSessionRepository) Create(ctx context.Context, model authusecase.Session) error {

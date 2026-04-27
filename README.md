@@ -144,6 +144,37 @@ Runtime routes:
 
 - `GET /` returns only `{"status":"ok"}` to avoid exposing implementation details.
 - `GET /api/v1/health` returns the backend health snapshot for observability.
+- `POST /api/v1/auth/login` authenticates admin users and writes the session into an `HttpOnly` cookie.
+- `POST /api/v1/auth/logout` revokes the current cookie-backed session.
+- `GET /api/v1/auth/me` returns the current authenticated session.
+- `POST /api/v1/auth/forgot-password` sends a reset link when SMTP is configured.
+- `POST /api/v1/auth/email-verification` sends an email verification link. The request accepts `email` and optional `callback_url`.
+- `GET /api/v1/auth/verify-email` verifies the email token, marks `user.emailVerified=true`, and redirects to the validated callback URL when provided.
+- `POST /api/v1/auth/2fa/*` routes cover TOTP setup, enable, disable, login verification, and backup-code regeneration.
+
+Email verification behavior:
+
+- Verification tokens are stored in the shared `verification` table with the `email_verification:<email>` identifier.
+- Verification links are generated from `BACKEND_URL`, falling back to `http://localhost:3333`.
+- Callback URLs are optional and must either be a relative path such as `/dashboard` or an absolute URL with the same origin as `FRONTEND_URL`.
+- SMTP delivery is enabled when `SMTP_HOST` and `SMTP_FROM` are configured.
+
+Relevant auth environment variables:
+
+```bash
+FRONTEND_URL=http://localhost:3111
+BACKEND_URL=http://localhost:3333
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=example
+SMTP_PASSWORD=secret
+SMTP_FROM=no-reply@example.com
+SMTP_FROM_NAME="Portfolio Admin"
+```
+
+Swagger note:
+
+- Generated Swagger files and Swaggo tooling are intentionally not part of the backend. The previous stale Swagger test/script references were removed so the API surface is documented in code and this README.
 
 ## 🗄️ `>_ BACKEND_DATABASE_MIGRATIONS`
 

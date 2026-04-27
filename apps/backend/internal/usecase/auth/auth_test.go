@@ -3,21 +3,31 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
 
 type fakeCredentialRepository struct {
-	account CredentialAccount
-	err     error
+	account            CredentialAccount
+	err                error
+	verifiedUserID     string
+	markVerifiedErr    error
+	findByEmailQueries []string
 }
 
-func (r fakeCredentialRepository) FindByEmail(context.Context, string) (CredentialAccount, error) {
+func (r *fakeCredentialRepository) FindByEmail(_ context.Context, email string) (CredentialAccount, error) {
+	r.findByEmailQueries = append(r.findByEmailQueries, email)
 	return r.account, r.err
 }
 
-func (r fakeCredentialRepository) FindByUserID(context.Context, string) (CredentialAccount, error) {
+func (r *fakeCredentialRepository) FindByUserID(context.Context, string) (CredentialAccount, error) {
 	return r.account, r.err
+}
+
+func (r *fakeCredentialRepository) MarkEmailVerified(_ context.Context, userID string) error {
+	r.verifiedUserID = userID
+	return r.markVerifiedErr
 }
 
 type fakeSessionRepository struct {
@@ -79,6 +89,51 @@ type fixedClock struct {
 
 func (c fixedClock) Now() time.Time {
 	return c.now
+}
+
+type fakeVerificationRepository struct {
+	createdIdentifier string
+	createdValue      string
+	deletedIdentifier string
+	value             string
+	err               error
+}
+
+func (r *fakeVerificationRepository) Create(_ context.Context, _ string, identifier string, value string, _ time.Time) error {
+	r.createdIdentifier = identifier
+	r.createdValue = value
+	return r.err
+}
+
+func (r *fakeVerificationRepository) FindByIdentifier(_ context.Context, identifier string) (string, error) {
+	if r.err != nil {
+		return "", r.err
+	}
+	if r.createdIdentifier == identifier {
+		return r.createdValue, nil
+	}
+	if r.value != "" {
+		return r.value, nil
+	}
+	return "", errors.New("verification not found")
+}
+
+func (r *fakeVerificationRepository) DeleteByIdentifier(_ context.Context, identifier string) error {
+	r.deletedIdentifier = identifier
+	return nil
+}
+
+type fakeMailSender struct {
+	to      string
+	subject string
+	body    string
+}
+
+func (s *fakeMailSender) Send(to string, subject string, htmlBody string) error {
+	s.to = to
+	s.subject = subject
+	s.body = htmlBody
+	return nil
 }
 
 func TestLoginUsesDefaultTTLWithoutRememberMe(t *testing.T) {
@@ -210,16 +265,121 @@ func TestLogoutRevokesCurrentSessionToken(t *testing.T) {
 	}
 }
 
+func TestSendVerificationEmailStoresTokenAndSendsBackendLinkWithCallback(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	verifications := &fakeVerificationRepository{}
+	mail := &fakeMailSender{}
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(verifications)
+	service.SetMailSender(mail)
+	service.options.FrontendURL = "https://portfolio.example"
+	service.options.BackendURL = "https://api.example"
+
+	err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{
+		Email:       "admin@example.com",
+		CallbackURL: "/dashboard",
+	})
+	if err != nil {
+		t.Fatalf("expected verification email to send, got %v", err)
+	}
+
+	if verifications.createdIdentifier != "email_verification:admin@example.com" {
+		t.Fatalf("expected email verification identifier, got %q", verifications.createdIdentifier)
+	}
+	if mail.to != "admin@example.com" || mail.subject != "Verify Your Email" {
+		t.Fatalf("unexpected email: to=%q subject=%q", mail.to, mail.subject)
+	}
+	if !strings.Contains(mail.body, "https://api.example/api/v1/auth/verify-email") {
+		t.Fatalf("expected backend verification link in email body, got %s", mail.body)
+	}
+	if !strings.Contains(mail.body, "callback_url=https%3A%2F%2Fportfolio.example%2Fdashboard") {
+		t.Fatalf("expected normalized callback in verification link, got %s", mail.body)
+	}
+}
+
+func TestVerifyEmailMarksUserVerifiedAndReturnsCallback(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{
+		account: CredentialAccount{
+			UserID:       "user-1",
+			Name:         "Admin",
+			Email:        "admin@example.com",
+			PasswordHash: "hash:secret",
+			Active:       true,
+		},
+	}
+	sessions := &fakeSessionRepository{}
+	service := NewService(
+		credentials,
+		sessions,
+		fakeTokenManager{},
+		fakePasswordVerifier{},
+		fakeIDGenerator{},
+		fixedClock{now: now},
+		Options{
+			Issuer:         "portfolio",
+			AccessTokenTTL: time.Hour,
+			RememberMeTTL:  7 * 24 * time.Hour,
+			FrontendURL:    "https://portfolio.example",
+			BackendURL:     "https://api.example",
+		},
+	)
+	verifications := &fakeVerificationRepository{}
+	service.SetVerifications(verifications)
+	service.SetMailSender(&fakeMailSender{})
+
+	if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{
+		Email:       "admin@example.com",
+		CallbackURL: "/verified",
+	}); err != nil {
+		t.Fatalf("expected verification email to send, got %v", err)
+	}
+
+	result, err := service.VerifyEmail(context.Background(), VerifyEmailCommand{
+		Email: "admin@example.com",
+		Token: "session-1",
+	})
+	if err != nil {
+		t.Fatalf("expected email verification to succeed, got %v", err)
+	}
+
+	if credentials.verifiedUserID != "user-1" {
+		t.Fatalf("expected user to be marked verified, got %q", credentials.verifiedUserID)
+	}
+	if result.RedirectURL != "https://portfolio.example/verified" {
+		t.Fatalf("expected stored callback, got %q", result.RedirectURL)
+	}
+	if verifications.deletedIdentifier != "email_verification:admin@example.com" {
+		t.Fatalf("expected verification token to be deleted, got %q", verifications.deletedIdentifier)
+	}
+}
+
+func TestSendVerificationEmailRejectsExternalCallback(t *testing.T) {
+	service := testService(&fakeSessionRepository{}, time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC))
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetMailSender(&fakeMailSender{})
+	service.options.FrontendURL = "https://portfolio.example"
+
+	err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{
+		Email:       "admin@example.com",
+		CallbackURL: "https://evil.example/dashboard",
+	})
+	if !errors.Is(err, ErrInvalidCallbackURL) {
+		t.Fatalf("expected invalid callback url, got %v", err)
+	}
+}
+
 func testService(sessions *fakeSessionRepository, now time.Time) *Service {
 	return NewService(
-		fakeCredentialRepository{
+		&fakeCredentialRepository{
 			account: CredentialAccount{
-				UserID:       "user-1",
-				Name:         "Admin",
-				Email:        "admin@example.com",
-				Role:         "admin",
-				PasswordHash: "hash:secret",
-				Active:       true,
+				UserID:        "user-1",
+				Name:          "Admin",
+				Email:         "admin@example.com",
+				EmailVerified: false,
+				Role:          "admin",
+				PasswordHash:  "hash:secret",
+				Active:        true,
 			},
 		},
 		sessions,
@@ -231,6 +391,8 @@ func testService(sessions *fakeSessionRepository, now time.Time) *Service {
 			Issuer:         "portfolio",
 			AccessTokenTTL: time.Hour,
 			RememberMeTTL:  7 * 24 * time.Hour,
+			FrontendURL:    "http://localhost:3111",
+			BackendURL:     "http://localhost:3333",
 		},
 	)
 }

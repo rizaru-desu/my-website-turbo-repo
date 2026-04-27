@@ -91,6 +91,7 @@ func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *a
 			AccessTokenTTL: authConfig.AccessTokenTTL,
 			RememberMeTTL:  authConfig.RememberMeTTL,
 			FrontendURL:    stringEnvFallback("FRONTEND_URL", "http://localhost:3111"),
+			BackendURL:     stringEnvFallback("BACKEND_URL", "http://localhost:3333"),
 		},
 	)
 
@@ -107,7 +108,7 @@ func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *a
 		svc.SetMailSender(mailinfra.NewSMTPMailSender(smtpConfig))
 		log.Println("SMTP mail sender dikonfigurasi:", smtpConfig.Host)
 	} else {
-		log.Println("SMTP belum dikonfigurasi; forgot password tidak aktif")
+		log.Println("SMTP belum dikonfigurasi; forgot password dan email verification tidak aktif")
 	}
 
 	return svc
