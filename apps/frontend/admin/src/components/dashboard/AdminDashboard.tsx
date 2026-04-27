@@ -1057,12 +1057,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </aside>
 
       <header className="topbar" data-testid="topbar">
-        <div className="search-box">
-          <IconSearch />
-          <input placeholder="SEARCH PROJECTS, POSTS, COMMANDS..." />
-          <span>CMD K</span>
-        </div>
-
         <div className="topbar-actions">
           <span className="pixel-badge live" data-testid="status-online">
             ONLINE

@@ -3,8 +3,8 @@ import { useForm } from "@tanstack/react-form";
 import { Button, Input, Label } from "@repo/ui";
 import { apiClient, AxiosError } from "@repo/api";
 
-import { IconMail } from "./icons";
-import { getFieldError } from "./utils";
+import { IconMail } from "../icons";
+import { getFieldError } from "../../utils";
 
 interface ForgotPasswordFormProps {
   onBackToLogin: () => void;

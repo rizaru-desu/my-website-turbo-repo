@@ -1,27 +1,50 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Label } from "@repo/ui";
+import { authService, AxiosError } from "@repo/api";
 
-import { IconShield } from "./icons";
-import { getFieldError } from "./utils";
+import { IconShield } from "../icons";
+import { getFieldError } from "../../utils";
+import { useAuth } from "../../hooks/useAuth";
 
 interface Verify2faFormProps {
+  twoFactorToken: string;
   onVerified: () => void;
   onBackToLogin: () => void;
 }
 
 export default function Verify2faForm({
+  twoFactorToken,
   onVerified,
   onBackToLogin,
 }: Verify2faFormProps) {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [verifyError, setVerifyError] = useState<string>("");
+  const { login } = useAuth();
+
   const twoFaForm = useForm({
     defaultValues: {
       code: ["", "", "", "", "", ""] as string[],
     },
-    onSubmit: async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-      onVerified();
+    onSubmit: async ({ value }) => {
+      try {
+        setVerifyError("");
+        const response = await authService.verifyTOTP({
+          two_factor_token: twoFactorToken,
+          code: value.code.join(""),
+        });
+        login(response);
+        onVerified();
+      } catch (error) {
+        if (error instanceof AxiosError) {
+          setVerifyError(
+            error.response?.data?.error ||
+              "Failed to verify code. Please try again.",
+          );
+        } else {
+          setVerifyError("An unexpected error occurred.");
+        }
+      }
     },
   });
 
@@ -38,6 +61,12 @@ export default function Verify2faForm({
       <p className="recovery-copy twofa-copy">
         ENTER THE 6-DIGIT CODE FROM YOUR AUTHENTICATOR APP.
       </p>
+
+      {verifyError && (
+        <div className="field-error" style={{ marginBottom: "1rem" }}>
+          ! {verifyError}
+        </div>
+      )}
 
       <twoFaForm.Field
         name="code"
@@ -78,11 +107,7 @@ export default function Verify2faForm({
                     autoFocus={index === 0}
                     data-testid={`otp-${index}`}
                     onKeyDown={(event) => {
-                      if (
-                        event.key === "Backspace" &&
-                        !digit &&
-                        index > 0
-                      ) {
+                      if (event.key === "Backspace" && !digit && index > 0) {
                         otpRefs.current[index - 1]?.focus();
                       }
                     }}
@@ -93,18 +118,11 @@ export default function Verify2faForm({
                         .replace(/\D/g, "")
                         .slice(0, 6);
                       const next = [...field.state.value];
-                      for (
-                        let i = 0;
-                        i < paste.length && index + i < 6;
-                        i++
-                      ) {
+                      for (let i = 0; i < paste.length && index + i < 6; i++) {
                         next[index + i] = paste[i];
                       }
                       field.handleChange(next);
-                      const focusIdx = Math.min(
-                        index + paste.length,
-                        5,
-                      );
+                      const focusIdx = Math.min(index + paste.length, 5);
                       otpRefs.current[focusIdx]?.focus();
                     }}
                     onChange={(event) => {
