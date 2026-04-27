@@ -350,6 +350,7 @@ CREATE INDEX testimonial_status_featured_idx ON public.testimonial USING btree (
 CREATE INDEX testimonial_status_idx ON public.testimonial USING btree (status);
 CREATE UNIQUE INDEX user_email_key ON public."user" USING btree (email);
 CREATE UNIQUE INDEX user_username_key ON public."user" USING btree (username);
+CREATE INDEX verification_identifier_idx ON public.verification USING btree (identifier);
 CREATE INDEX "visitorLog_path_visitedAt_idx" ON public."visitorLog" USING btree (path, "visitedAt");
 CREATE INDEX "visitorLog_referrerSource_visitedAt_idx" ON public."visitorLog" USING btree ("referrerSource", "visitedAt");
 CREATE INDEX "visitorLog_visitedAt_idx" ON public."visitorLog" USING btree ("visitedAt");

@@ -15,6 +15,7 @@ type stubAuthService struct {
 	result                   authusecase.LoginResult
 	logoutToken              *string
 	verifyToken              *string
+	forgotPasswordErr        error
 	verificationEmail        *authusecase.SendVerificationEmailCommand
 	verifyEmailCommand       *authusecase.VerifyEmailCommand
 	verifyEmailResult        authusecase.VerifyEmailResult
@@ -35,7 +36,7 @@ func (s stubAuthService) Logout(_ context.Context, token string) error {
 }
 
 func (s stubAuthService) ForgotPassword(context.Context, authusecase.ForgotPasswordCommand) error {
-	return nil
+	return s.forgotPasswordErr
 }
 
 func (s stubAuthService) SendVerificationEmail(_ context.Context, command authusecase.SendVerificationEmailCommand) error {
@@ -227,11 +228,29 @@ func TestAuthMeUsesCookieSession(t *testing.T) {
 	}
 }
 
+func TestForgotPasswordReportsDeliveryFailure(t *testing.T) {
+	handler := NewAuthHandler(stubAuthService{
+		forgotPasswordErr: authusecase.ErrEmailDeliveryFailed,
+	}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/forgot-password", strings.NewReader(`{"email":"admin@example.com"}`))
+	rec := httptest.NewRecorder()
+
+	handler.ForgotPassword(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadGateway, rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to send reset email") {
+		t.Fatalf("expected delivery failure message, got %s", rec.Body.String())
+	}
+}
+
 func TestSendVerificationEmailPassesCallbackToService(t *testing.T) {
 	command := authusecase.SendVerificationEmailCommand{}
 	handler := NewAuthHandler(stubAuthService{verificationEmail: &command}, AuthCookieConfig{})
 
-	req := httptest.NewRequest(http.MethodPost, authPath+"/email-verification", strings.NewReader(`{"email":" admin@example.com ","callback_url":"/dashboard"}`))
+	req := httptest.NewRequest(http.MethodPost, authPath+"/email-verification", strings.NewReader(`{"email":" admin@example.com ","callbackURL":"/dashboard"}`))
 	rec := httptest.NewRecorder()
 
 	handler.SendVerificationEmail(rec, req)
@@ -241,6 +260,24 @@ func TestSendVerificationEmailPassesCallbackToService(t *testing.T) {
 	}
 	if command.Email != "admin@example.com" || command.CallbackURL != "/dashboard" {
 		t.Fatalf("unexpected verification command: %#v", command)
+	}
+}
+
+func TestSendVerificationEmailReportsDeliveryFailure(t *testing.T) {
+	handler := NewAuthHandler(stubAuthService{
+		sendVerificationEmailErr: authusecase.ErrEmailDeliveryFailed,
+	}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/email-verification", strings.NewReader(`{"email":"admin@example.com","callbackURL":"/dashboard"}`))
+	rec := httptest.NewRecorder()
+
+	handler.SendVerificationEmail(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadGateway, rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to send verification email") {
+		t.Fatalf("expected delivery failure message, got %s", rec.Body.String())
 	}
 }
 
@@ -255,7 +292,7 @@ func TestVerifyEmailRedirectsToCallback(t *testing.T) {
 		},
 	}, AuthCookieConfig{})
 
-	req := httptest.NewRequest(http.MethodGet, authPath+"/verify-email?email=admin@example.com&token=abc&callback_url=/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, authPath+"/verify-email?token=abc&callbackURL=/dashboard", nil)
 	rec := httptest.NewRecorder()
 
 	handler.VerifyEmail(rec, req)
@@ -266,7 +303,7 @@ func TestVerifyEmailRedirectsToCallback(t *testing.T) {
 	if location := rec.Header().Get("Location"); location != "https://portfolio.example/dashboard" {
 		t.Fatalf("expected redirect location, got %q", location)
 	}
-	if command.Email != "admin@example.com" || command.Token != "abc" || command.CallbackURL != "/dashboard" {
+	if command.Token != "abc" || command.CallbackURL != "/dashboard" {
 		t.Fatalf("unexpected verify command: %#v", command)
 	}
 }

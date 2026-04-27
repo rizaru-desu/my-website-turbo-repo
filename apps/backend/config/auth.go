@@ -9,12 +9,16 @@ import (
 )
 
 type AuthConfig struct {
-	Secret         string
-	Issuer         string
-	JWTSecret      string
-	AccessTokenTTL time.Duration
-	RememberMeTTL  time.Duration
-	Cookie         AuthCookieConfig
+	Secret                      string
+	Issuer                      string
+	JWTSecret                   string
+	AccessTokenTTL              time.Duration
+	RememberMeTTL               time.Duration
+	EmailVerificationCooldown   time.Duration
+	EmailVerificationMaxPerHour int
+	AuthRouteRateLimitWindow    time.Duration
+	AuthRouteRateLimitMax       int
+	Cookie                      AuthCookieConfig
 }
 
 type AuthCookieConfig struct {
@@ -34,11 +38,15 @@ func LoadAuthConfig(environment string) AuthConfig {
 	}
 
 	return AuthConfig{
-		Secret:         secret,
-		Issuer:         stringEnv("AUTH_JWT_ISSUER", "portfolio-lightweight"),
-		JWTSecret:      firstNonEmptyEnv(secret, "AUTH_JWT_SECRET"),
-		AccessTokenTTL: durationEnv("AUTH_JWT_EXPIRES_IN", 24*time.Hour),
-		RememberMeTTL:  durationEnv("AUTH_REMEMBER_ME_EXPIRES_IN", 30*24*time.Hour),
+		Secret:                      secret,
+		Issuer:                      stringEnv("AUTH_JWT_ISSUER", "portfolio-lightweight"),
+		JWTSecret:                   firstNonEmptyEnv(secret, "AUTH_JWT_SECRET"),
+		AccessTokenTTL:              durationEnv("AUTH_JWT_EXPIRES_IN", 24*time.Hour),
+		RememberMeTTL:               durationEnv("AUTH_REMEMBER_ME_EXPIRES_IN", 30*24*time.Hour),
+		EmailVerificationCooldown:   durationEnv("AUTH_EMAIL_VERIFICATION_COOLDOWN", time.Minute),
+		EmailVerificationMaxPerHour: intEnv("AUTH_EMAIL_VERIFICATION_MAX_PER_HOUR", 5),
+		AuthRouteRateLimitWindow:    durationEnv("AUTH_AUTH_ROUTE_RATE_LIMIT_WINDOW", time.Minute),
+		AuthRouteRateLimitMax:       intEnv("AUTH_AUTH_ROUTE_RATE_LIMIT_MAX", 5),
 		Cookie: AuthCookieConfig{
 			Name:     stringEnv("AUTH_COOKIE_NAME", "portfolio_auth"),
 			Path:     stringEnv("AUTH_COOKIE_PATH", "/"),
@@ -85,6 +93,20 @@ func durationEnv(key string, fallback time.Duration) time.Duration {
 	}
 
 	return fallback
+}
+
+func intEnv(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+
+	return parsed
 }
 
 func sameSiteEnv(key string, fallback http.SameSite) http.SameSite {

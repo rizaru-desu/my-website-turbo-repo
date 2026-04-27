@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -192,12 +193,24 @@ type EntVerificationRepository struct {
 	now    func() time.Time
 }
 
+type EntEmailVerificationLimiter struct {
+	client *ent.Client
+}
+
+type emailVerificationLimitState struct {
+	Attempts []time.Time `json:"attempts"`
+}
+
 func NewEntVerificationRepository(client *ent.Client, now func() time.Time) *EntVerificationRepository {
 	if now == nil {
 		now = time.Now
 	}
 
 	return &EntVerificationRepository{client: client, now: now}
+}
+
+func NewEntEmailVerificationLimiter(client *ent.Client) *EntEmailVerificationLimiter {
+	return &EntEmailVerificationLimiter{client: client}
 }
 
 func (r *EntVerificationRepository) Create(ctx context.Context, id string, identifier string, value string, expiresAt time.Time) error {
@@ -244,6 +257,120 @@ func (r *EntVerificationRepository) FindByIdentifier(ctx context.Context, identi
 	}
 
 	return record.Value, nil
+}
+
+func (r *EntVerificationRepository) FindIdentifierByValue(ctx context.Context, value string) (string, error) {
+	if r.client == nil {
+		return "", fmt.Errorf("verification database client is not configured")
+	}
+
+	record, err := r.client.Verification.Query().
+		Where(verification.ValueEQ(value)).
+		Only(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if record.ExpiresAt.Before(time.Now().UTC()) {
+		_ = r.DeleteByIdentifier(ctx, record.Identifier)
+		return "", fmt.Errorf("verification expired")
+	}
+
+	return record.Identifier, nil
+}
+
+func (r *EntEmailVerificationLimiter) Allow(ctx context.Context, email string, now time.Time, cooldown time.Duration, window time.Duration, max int) (bool, error) {
+	if r.client == nil {
+		return false, fmt.Errorf("email verification limiter database client is not configured")
+	}
+	if max <= 0 {
+		return false, nil
+	}
+	if window <= 0 {
+		window = time.Hour
+	}
+
+	identifier := "email_verification_limit:" + strings.ToLower(strings.TrimSpace(email))
+	record, err := r.client.Verification.Query().
+		Where(verification.IdentifierEQ(identifier)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return r.createEmailVerificationLimit(ctx, identifier, now, window)
+		}
+		return false, err
+	}
+
+	if !record.ExpiresAt.After(now) {
+		_ = r.deleteEmailVerificationLimit(ctx, identifier)
+		return r.createEmailVerificationLimit(ctx, identifier, now, window)
+	}
+
+	state := emailVerificationLimitState{}
+	if record.Value != "" {
+		if err := json.Unmarshal([]byte(record.Value), &state); err != nil {
+			state = emailVerificationLimitState{}
+		}
+	}
+
+	cutoff := now.Add(-window)
+	attempts := make([]time.Time, 0, len(state.Attempts)+1)
+	for _, attempt := range state.Attempts {
+		if attempt.After(cutoff) {
+			attempts = append(attempts, attempt)
+		}
+	}
+
+	if len(attempts) > 0 && cooldown > 0 && attempts[len(attempts)-1].After(now.Add(-cooldown)) {
+		return false, nil
+	}
+	if len(attempts) >= max {
+		return false, nil
+	}
+
+	attempts = append(attempts, now)
+	value, err := json.Marshal(emailVerificationLimitState{Attempts: attempts})
+	if err != nil {
+		return false, err
+	}
+
+	_, err = r.client.Verification.Update().
+		Where(verification.IdentifierEQ(identifier)).
+		SetValue(string(value)).
+		SetExpiresAt(now.Add(window)).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (r *EntEmailVerificationLimiter) createEmailVerificationLimit(ctx context.Context, identifier string, now time.Time, window time.Duration) (bool, error) {
+	value, err := json.Marshal(emailVerificationLimitState{Attempts: []time.Time{now}})
+	if err != nil {
+		return false, err
+	}
+
+	_, err = r.client.Verification.Create().
+		SetID(identifier).
+		SetIdentifier(identifier).
+		SetValue(string(value)).
+		SetExpiresAt(now.Add(window)).
+		SetCreatedAt(now).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (r *EntEmailVerificationLimiter) deleteEmailVerificationLimit(ctx context.Context, identifier string) error {
+	_, err := r.client.Verification.Delete().Where(verification.IdentifierEQ(identifier)).Exec(ctx)
+	return err
 }
 
 func userTwoFactorEnabled(record *ent.User) bool {

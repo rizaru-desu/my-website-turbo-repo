@@ -635,6 +635,12 @@ func (Verification) Fields() []ent.Field {
 	}
 }
 
+func (Verification) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("identifier").StorageKey("verification_identifier_idx"),
+	}
+}
+
 // VisitorLog holds the schema definition for the visitorLog table.
 type VisitorLog struct{ ent.Schema }
 

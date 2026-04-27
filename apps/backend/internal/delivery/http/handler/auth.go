@@ -53,8 +53,9 @@ type ForgotPasswordRequest struct {
 }
 
 type SendVerificationEmailRequest struct {
-	Email       string `json:"email"`
-	CallbackURL string `json:"callback_url"`
+	Email            string `json:"email"`
+	CallbackURL      string `json:"callbackURL"`
+	CallbackURLSnake string `json:"callback_url"`
 }
 
 type VerifyTOTPRequest struct {
@@ -229,7 +230,13 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.ForgotPassword(r.Context(), authusecase.ForgotPasswordCommand{Email: email}); err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to process request"})
+		status := http.StatusInternalServerError
+		message := "failed to process request"
+		if errors.Is(err, authusecase.ErrEmailDeliveryFailed) {
+			status = http.StatusBadGateway
+			message = "failed to send reset email"
+		}
+		writeJSON(w, status, ErrorResponse{Error: message})
 		return
 	}
 
@@ -258,12 +265,14 @@ func (h *AuthHandler) SendVerificationEmail(w http.ResponseWriter, r *http.Reque
 
 	err := h.service.SendVerificationEmail(r.Context(), authusecase.SendVerificationEmailCommand{
 		Email:       email,
-		CallbackURL: strings.TrimSpace(payload.CallbackURL),
+		CallbackURL: strings.TrimSpace(firstQueryValue(payload.CallbackURL, payload.CallbackURLSnake)),
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, authusecase.ErrInvalidCallbackURL) {
 			status = http.StatusBadRequest
+		} else if errors.Is(err, authusecase.ErrEmailDeliveryFailed) {
+			status = http.StatusBadGateway
 		}
 		writeJSON(w, status, ErrorResponse{Error: emailVerificationErrorMessage(err)})
 		return
@@ -280,9 +289,8 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query()
 	result, err := h.service.VerifyEmail(r.Context(), authusecase.VerifyEmailCommand{
-		Email:       strings.TrimSpace(query.Get("email")),
 		Token:       strings.TrimSpace(query.Get("token")),
-		CallbackURL: strings.TrimSpace(firstQueryValue(query.Get("callback_url"), query.Get("callbackUrl"))),
+		CallbackURL: strings.TrimSpace(firstQueryValue(query.Get("callbackURL"), query.Get("callback_url"), query.Get("callbackUrl"))),
 	})
 	if err != nil {
 		status := http.StatusBadRequest
@@ -511,6 +519,8 @@ func emailVerificationErrorMessage(err error) string {
 		return "invalid callback url"
 	case errors.Is(err, authusecase.ErrInvalidToken):
 		return "invalid or expired verification token"
+	case errors.Is(err, authusecase.ErrEmailDeliveryFailed):
+		return "failed to send verification email"
 	default:
 		return "failed to verify email"
 	}

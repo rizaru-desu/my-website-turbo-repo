@@ -118,6 +118,16 @@ func (r *fakeVerificationRepository) FindByIdentifier(_ context.Context, identif
 	return "", errors.New("verification not found")
 }
 
+func (r *fakeVerificationRepository) FindIdentifierByValue(_ context.Context, value string) (string, error) {
+	if r.err != nil {
+		return "", r.err
+	}
+	if r.createdValue == value {
+		return r.createdIdentifier, nil
+	}
+	return "", errors.New("verification not found")
+}
+
 func (r *fakeVerificationRepository) DeleteByIdentifier(_ context.Context, identifier string) error {
 	r.deletedIdentifier = identifier
 	return nil
@@ -127,13 +137,31 @@ type fakeMailSender struct {
 	to      string
 	subject string
 	body    string
+	count   int
+	err     error
 }
 
 func (s *fakeMailSender) Send(to string, subject string, htmlBody string) error {
 	s.to = to
 	s.subject = subject
 	s.body = htmlBody
-	return nil
+	s.count++
+	return s.err
+}
+
+type fakeEmailVerificationLimiter struct {
+	allowed []bool
+	calls   int
+}
+
+func (l *fakeEmailVerificationLimiter) Allow(context.Context, string, time.Time, time.Duration, time.Duration, int) (bool, error) {
+	l.calls++
+	if len(l.allowed) == 0 {
+		return true, nil
+	}
+	allowed := l.allowed[0]
+	l.allowed = l.allowed[1:]
+	return allowed, nil
 }
 
 func TestLoginUsesDefaultTTLWithoutRememberMe(t *testing.T) {
@@ -265,6 +293,42 @@ func TestLogoutRevokesCurrentSessionToken(t *testing.T) {
 	}
 }
 
+func TestForgotPasswordSendsResetEmailViaSMTP(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	verifications := &fakeVerificationRepository{}
+	mail := &fakeMailSender{}
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(verifications)
+	service.SetMailSender(mail)
+	service.options.FrontendURL = "https://portfolio.example"
+
+	if err := service.ForgotPassword(context.Background(), ForgotPasswordCommand{Email: "admin@example.com"}); err != nil {
+		t.Fatalf("expected forgot password email to send, got %v", err)
+	}
+
+	if verifications.createdIdentifier != "password_reset:admin@example.com" {
+		t.Fatalf("expected password reset identifier, got %q", verifications.createdIdentifier)
+	}
+	if mail.count != 1 || mail.to != "admin@example.com" || mail.subject != "Password Reset Request" {
+		t.Fatalf("unexpected reset email: count=%d to=%q subject=%q", mail.count, mail.to, mail.subject)
+	}
+	if !strings.Contains(mail.body, "https://portfolio.example/reset-password") || !strings.Contains(mail.body, "token=session-1") {
+		t.Fatalf("expected reset password link in email body, got %s", mail.body)
+	}
+}
+
+func TestForgotPasswordReturnsDeliveryFailure(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetMailSender(&fakeMailSender{err: errors.New("smtp unavailable")})
+
+	err := service.ForgotPassword(context.Background(), ForgotPasswordCommand{Email: "admin@example.com"})
+	if !errors.Is(err, ErrEmailDeliveryFailed) {
+		t.Fatalf("expected email delivery failure, got %v", err)
+	}
+}
+
 func TestSendVerificationEmailStoresTokenAndSendsBackendLinkWithCallback(t *testing.T) {
 	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
 	verifications := &fakeVerificationRepository{}
@@ -292,8 +356,149 @@ func TestSendVerificationEmailStoresTokenAndSendsBackendLinkWithCallback(t *test
 	if !strings.Contains(mail.body, "https://api.example/api/v1/auth/verify-email") {
 		t.Fatalf("expected backend verification link in email body, got %s", mail.body)
 	}
-	if !strings.Contains(mail.body, "callback_url=https%3A%2F%2Fportfolio.example%2Fdashboard") {
+	if strings.Contains(mail.body, "email=admin%40example.com") || strings.Contains(mail.body, "email=admin@example.com") {
+		t.Fatalf("expected verification link to avoid email query parameter, got %s", mail.body)
+	}
+	if !strings.Contains(mail.body, "token=session-1") {
+		t.Fatalf("expected token query parameter in verification link, got %s", mail.body)
+	}
+	if !strings.Contains(mail.body, "callbackURL=https%3A%2F%2Fportfolio.example%2Fdashboard") {
 		t.Fatalf("expected normalized callback in verification link, got %s", mail.body)
+	}
+}
+
+func TestSendVerificationEmailSuppressesWithinCooldown(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	verifications := &fakeVerificationRepository{}
+	mail := &fakeMailSender{}
+	limiter := &fakeEmailVerificationLimiter{allowed: []bool{true, false}}
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(verifications)
+	service.SetEmailVerificationLimiter(limiter)
+	service.SetMailSender(mail)
+
+	for i := 0; i < 2; i++ {
+		if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "admin@example.com"}); err != nil {
+			t.Fatalf("expected verification request %d to succeed, got %v", i+1, err)
+		}
+	}
+
+	if mail.count != 1 {
+		t.Fatalf("expected only one email within cooldown, got %d", mail.count)
+	}
+	if limiter.calls != 2 {
+		t.Fatalf("expected limiter to be consulted twice, got %d", limiter.calls)
+	}
+}
+
+func TestSendVerificationEmailAllowsAfterCooldown(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	mail := &fakeMailSender{}
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetEmailVerificationLimiter(&fakeEmailVerificationLimiter{allowed: []bool{true, true}})
+	service.SetMailSender(mail)
+
+	for i := 0; i < 2; i++ {
+		if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "admin@example.com"}); err != nil {
+			t.Fatalf("expected verification request %d to succeed, got %v", i+1, err)
+		}
+	}
+
+	if mail.count != 2 {
+		t.Fatalf("expected two emails after cooldown allowance, got %d", mail.count)
+	}
+}
+
+func TestSendVerificationEmailReturnsDeliveryFailure(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	service := testService(&fakeSessionRepository{}, now)
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetEmailVerificationLimiter(&fakeEmailVerificationLimiter{})
+	service.SetMailSender(&fakeMailSender{err: errors.New("smtp unavailable")})
+
+	err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "admin@example.com"})
+	if !errors.Is(err, ErrEmailDeliveryFailed) {
+		t.Fatalf("expected email delivery failure, got %v", err)
+	}
+}
+
+func TestSendVerificationEmailUnknownEmailIsSilent(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{err: errors.New("not found")}
+	mail := &fakeMailSender{}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+		FrontendURL:    "http://localhost:3111",
+		BackendURL:     "http://localhost:3333",
+	})
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetEmailVerificationLimiter(&fakeEmailVerificationLimiter{})
+	service.SetMailSender(mail)
+
+	if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "missing@example.com"}); err != nil {
+		t.Fatalf("expected missing email to be silent, got %v", err)
+	}
+	if mail.count != 0 {
+		t.Fatalf("expected missing email not to send mail, got %d sends", mail.count)
+	}
+}
+
+func TestSendVerificationEmailVerifiedUserIsSilent(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{account: CredentialAccount{
+		UserID:        "user-1",
+		Name:          "Admin",
+		Email:         "admin@example.com",
+		EmailVerified: true,
+		PasswordHash:  "hash:secret",
+		Active:        true,
+	}}
+	mail := &fakeMailSender{}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+		FrontendURL:    "http://localhost:3111",
+		BackendURL:     "http://localhost:3333",
+	})
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetEmailVerificationLimiter(&fakeEmailVerificationLimiter{})
+	service.SetMailSender(mail)
+
+	if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "admin@example.com"}); err != nil {
+		t.Fatalf("expected verified email request to be silent, got %v", err)
+	}
+	if mail.count != 0 {
+		t.Fatalf("expected verified user not to send mail, got %d sends", mail.count)
+	}
+}
+
+func TestSendVerificationEmailInactiveUserIsSilent(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{account: CredentialAccount{
+		UserID:       "user-1",
+		Name:         "Admin",
+		Email:        "admin@example.com",
+		PasswordHash: "hash:secret",
+		Active:       false,
+	}}
+	mail := &fakeMailSender{}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+		FrontendURL:    "http://localhost:3111",
+		BackendURL:     "http://localhost:3333",
+	})
+	service.SetVerifications(&fakeVerificationRepository{})
+	service.SetEmailVerificationLimiter(&fakeEmailVerificationLimiter{})
+	service.SetMailSender(mail)
+
+	if err := service.SendVerificationEmail(context.Background(), SendVerificationEmailCommand{Email: "admin@example.com"}); err != nil {
+		t.Fatalf("expected inactive email request to be silent, got %v", err)
+	}
+	if mail.count != 0 {
+		t.Fatalf("expected inactive user not to send mail, got %d sends", mail.count)
 	}
 }
 
@@ -336,8 +541,8 @@ func TestVerifyEmailMarksUserVerifiedAndReturnsCallback(t *testing.T) {
 	}
 
 	result, err := service.VerifyEmail(context.Background(), VerifyEmailCommand{
-		Email: "admin@example.com",
-		Token: "session-1",
+		Token:       "session-1",
+		CallbackURL: "/verified",
 	})
 	if err != nil {
 		t.Fatalf("expected email verification to succeed, got %v", err)
@@ -347,7 +552,7 @@ func TestVerifyEmailMarksUserVerifiedAndReturnsCallback(t *testing.T) {
 		t.Fatalf("expected user to be marked verified, got %q", credentials.verifiedUserID)
 	}
 	if result.RedirectURL != "https://portfolio.example/verified" {
-		t.Fatalf("expected stored callback, got %q", result.RedirectURL)
+		t.Fatalf("expected callback redirect, got %q", result.RedirectURL)
 	}
 	if verifications.deletedIdentifier != "email_verification:admin@example.com" {
 		t.Fatalf("expected verification token to be deleted, got %q", verifications.deletedIdentifier)

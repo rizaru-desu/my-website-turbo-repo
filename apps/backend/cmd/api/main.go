@@ -70,9 +70,17 @@ func newHandler(databaseClients ...*ent.Client) http.Handler {
 
 	securityConfig := config.SecurityConfigForEnvironment(environment)
 	corsConfig := config.DefaultCORSConfig()
+	rateLimitConfig := middleware.IPRateLimitConfig{
+		Window: authConfig.AuthRouteRateLimitWindow,
+		Max:    authConfig.AuthRouteRateLimitMax,
+		Routes: map[string]struct{}{
+			"POST /api/v1/auth/email-verification": {},
+			"POST /api/v1/auth/forgot-password":    {},
+		},
+	}
 
 	// Apply CORS before security headers so preflight requests are answered cleanly.
-	return middleware.NewCORS(corsConfig)(middleware.NewSecurityHeaders(securityConfig)(mux))
+	return middleware.NewCORS(corsConfig)(middleware.NewSecurityHeaders(securityConfig)(middleware.NewIPRateLimiter(rateLimitConfig)(mux)))
 }
 
 func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *authusecase.Service {
@@ -87,16 +95,19 @@ func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *a
 		authinfra.CryptoIDGenerator{},
 		clock,
 		authusecase.Options{
-			Issuer:         authConfig.Issuer,
-			AccessTokenTTL: authConfig.AccessTokenTTL,
-			RememberMeTTL:  authConfig.RememberMeTTL,
-			FrontendURL:    stringEnvFallback("FRONTEND_URL", "http://localhost:3111"),
-			BackendURL:     stringEnvFallback("BACKEND_URL", "http://localhost:3333"),
+			Issuer:                    authConfig.Issuer,
+			AccessTokenTTL:            authConfig.AccessTokenTTL,
+			RememberMeTTL:             authConfig.RememberMeTTL,
+			EmailVerificationCooldown: authConfig.EmailVerificationCooldown,
+			EmailVerificationMax:      authConfig.EmailVerificationMaxPerHour,
+			FrontendURL:               stringEnvFallback("FRONTEND_URL", "http://localhost:3111"),
+			BackendURL:                stringEnvFallback("BACKEND_URL", "http://localhost:3333"),
 		},
 	)
 
 	if databaseClient != nil {
 		svc.SetVerifications(authstore.NewEntVerificationRepository(databaseClient, clock.Now))
+		svc.SetEmailVerificationLimiter(authstore.NewEntEmailVerificationLimiter(databaseClient))
 		svc.SetTwoFactors(authstore.NewEntTwoFactorRepository(databaseClient))
 	}
 

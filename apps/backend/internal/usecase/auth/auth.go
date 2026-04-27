@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"log"
 	"net/url"
 	"strings"
@@ -14,15 +12,16 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInactiveUser       = errors.New("inactive user")
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrEmailNotFound      = errors.New("email not found")
-	ErrTwoFactorRequired  = errors.New("two factor authentication required")
-	ErrInvalidTOTPCode    = errors.New("invalid totp code")
-	ErrTwoFactorNotSetup  = errors.New("two factor not configured")
-	ErrTwoFactorExists    = errors.New("two factor already enabled")
-	ErrInvalidCallbackURL = errors.New("invalid callback url")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrInactiveUser        = errors.New("inactive user")
+	ErrInvalidToken        = errors.New("invalid token")
+	ErrEmailNotFound       = errors.New("email not found")
+	ErrTwoFactorRequired   = errors.New("two factor authentication required")
+	ErrInvalidTOTPCode     = errors.New("invalid totp code")
+	ErrTwoFactorNotSetup   = errors.New("two factor not configured")
+	ErrTwoFactorExists     = errors.New("two factor already enabled")
+	ErrInvalidCallbackURL  = errors.New("invalid callback url")
+	ErrEmailDeliveryFailed = errors.New("email delivery failed")
 )
 
 type CredentialRepository interface {
@@ -49,7 +48,12 @@ type PasswordVerifier interface {
 type VerificationRepository interface {
 	Create(ctx context.Context, id string, identifier string, value string, expiresAt time.Time) error
 	FindByIdentifier(ctx context.Context, identifier string) (string, error)
+	FindIdentifierByValue(ctx context.Context, value string) (string, error)
 	DeleteByIdentifier(ctx context.Context, identifier string) error
+}
+
+type EmailVerificationLimiter interface {
+	Allow(ctx context.Context, email string, now time.Time, cooldown time.Duration, window time.Duration, max int) (bool, error)
 }
 
 type MailSender interface {
@@ -141,7 +145,6 @@ type SendVerificationEmailCommand struct {
 }
 
 type VerifyEmailCommand struct {
-	Email       string
 	Token       string
 	CallbackURL string
 }
@@ -153,13 +156,16 @@ type VerifyEmailResult struct {
 }
 
 type Options struct {
-	Issuer               string
-	AccessTokenTTL       time.Duration
-	RememberMeTTL        time.Duration
-	ResetTokenTTL        time.Duration
-	EmailVerificationTTL time.Duration
-	FrontendURL          string
-	BackendURL           string
+	Issuer                    string
+	AccessTokenTTL            time.Duration
+	RememberMeTTL             time.Duration
+	ResetTokenTTL             time.Duration
+	EmailVerificationTTL      time.Duration
+	EmailVerificationCooldown time.Duration
+	EmailVerificationWindow   time.Duration
+	EmailVerificationMax      int
+	FrontendURL               string
+	BackendURL                string
 }
 
 type Service struct {
@@ -171,6 +177,7 @@ type Service struct {
 	clock         Clock
 	options       Options
 	verifications VerificationRepository
+	emailLimiter  EmailVerificationLimiter
 	mail          MailSender
 	twoFactors    TwoFactorRepository
 	totp          TOTPManager
@@ -182,6 +189,15 @@ func NewService(credentials CredentialRepository, sessions SessionRepository, to
 	}
 	if options.EmailVerificationTTL == 0 {
 		options.EmailVerificationTTL = 24 * time.Hour
+	}
+	if options.EmailVerificationCooldown == 0 {
+		options.EmailVerificationCooldown = time.Minute
+	}
+	if options.EmailVerificationWindow == 0 {
+		options.EmailVerificationWindow = time.Hour
+	}
+	if options.EmailVerificationMax == 0 {
+		options.EmailVerificationMax = 5
 	}
 
 	return &Service{
@@ -196,9 +212,12 @@ func NewService(credentials CredentialRepository, sessions SessionRepository, to
 }
 
 func (s *Service) SetVerifications(repo VerificationRepository) { s.verifications = repo }
-func (s *Service) SetMailSender(sender MailSender)              { s.mail = sender }
-func (s *Service) SetTwoFactors(repo TwoFactorRepository)       { s.twoFactors = repo }
-func (s *Service) SetTOTP(manager TOTPManager)                  { s.totp = manager }
+func (s *Service) SetEmailVerificationLimiter(limiter EmailVerificationLimiter) {
+	s.emailLimiter = limiter
+}
+func (s *Service) SetMailSender(sender MailSender)        { s.mail = sender }
+func (s *Service) SetTwoFactors(repo TwoFactorRepository) { s.twoFactors = repo }
+func (s *Service) SetTOTP(manager TOTPManager)            { s.totp = manager }
 
 func (s *Service) Login(ctx context.Context, command LoginCommand) (LoginResult, error) {
 	account, err := s.credentials.FindByEmail(ctx, command.Email)
@@ -354,28 +373,16 @@ func (s *Service) ForgotPassword(ctx context.Context, command ForgotPasswordComm
 		return fmt.Errorf("create reset token: %w", err)
 	}
 
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s&email=%s", s.options.FrontendURL, resetToken, account.Email)
+	resetURL, err := s.resetPasswordURL(resetToken, account.Email)
+	if err != nil {
+		return fmt.Errorf("build reset password url: %w", err)
+	}
 
-	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:32px">
-  <div style="max-width:480px;margin:0 auto">
-    <h2 style="color:#ffffff;border-bottom:1px solid #333;padding-bottom:12px">PASSWORD RESET REQUEST</h2>
-    <p>Hello <strong>%s</strong>,</p>
-    <p>A password reset was requested for your account. Click the link below to set a new password:</p>
-    <p style="margin:24px 0">
-      <a href="%s" style="background:#ffffff;color:#0a0a0a;padding:10px 20px;text-decoration:none;font-weight:bold;display:inline-block">RESET PASSWORD</a>
-    </p>
-    <p style="color:#888;font-size:12px">This link expires in %d minutes. If you did not request this, ignore this email.</p>
-    <hr style="border-color:#333">
-    <p style="color:#555;font-size:11px">Portfolio Admin System</p>
-  </div>
-</body>
-</html>`, account.Name, resetURL, int(s.options.ResetTokenTTL.Minutes()))
+	htmlBody := passwordResetEmailHTML(account.Name, resetURL, s.options.ResetTokenTTL)
 
 	if err := s.mail.Send(account.Email, "Password Reset Request", htmlBody); err != nil {
-		return fmt.Errorf("send reset email: %w", err)
+		log.Printf("forgot password: failed to send reset email to %s: %v", account.Email, err)
+		return fmt.Errorf("%w: send reset email: %v", ErrEmailDeliveryFailed, err)
 	}
 
 	log.Printf("forgot password: reset email sent to %s", account.Email)
@@ -403,28 +410,42 @@ func (s *Service) SendVerificationEmail(ctx context.Context, command SendVerific
 		return nil
 	}
 
-	if !account.Active || account.EmailVerified {
+	if !account.Active {
+		log.Printf("email verification: skipped send for inactive user %s", account.Email)
 		return nil
+	}
+
+	if account.EmailVerified {
+		log.Printf("email verification: skipped send because %s is already verified", account.Email)
+		return nil
+	}
+
+	now := s.clock.Now().UTC()
+	if s.emailLimiter != nil {
+		allowed, err := s.emailLimiter.Allow(
+			ctx,
+			account.Email,
+			now,
+			s.options.EmailVerificationCooldown,
+			s.options.EmailVerificationWindow,
+			s.options.EmailVerificationMax,
+		)
+		if err != nil {
+			return fmt.Errorf("check email verification rate limit: %w", err)
+		}
+		if !allowed {
+			log.Printf("email verification: resend suppressed for %s", account.Email)
+			return nil
+		}
 	}
 
 	identifier := "email_verification:" + account.Email
 	_ = s.verifications.DeleteByIdentifier(ctx, identifier)
 
-	now := s.clock.Now().UTC()
 	expiresAt := now.Add(s.options.EmailVerificationTTL)
 	verificationToken := s.ids.NewID()
 
-	value, err := json.Marshal(emailVerificationValue{
-		Token:       verificationToken,
-		UserID:      account.UserID,
-		Email:       account.Email,
-		CallbackURL: callbackURL,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal verification token: %w", err)
-	}
-
-	if err := s.verifications.Create(ctx, s.ids.NewID(), identifier, string(value), expiresAt); err != nil {
+	if err := s.verifications.Create(ctx, s.ids.NewID(), identifier, verificationToken, expiresAt); err != nil {
 		return fmt.Errorf("create email verification token: %w", err)
 	}
 
@@ -433,26 +454,12 @@ func (s *Service) SendVerificationEmail(ctx context.Context, command SendVerific
 		return fmt.Errorf("build verification url: %w", err)
 	}
 
-	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:32px">
-  <div style="max-width:480px;margin:0 auto">
-    <h2 style="color:#ffffff;border-bottom:1px solid #333;padding-bottom:12px">VERIFY YOUR EMAIL</h2>
-    <p>Hello <strong>%s</strong>,</p>
-    <p>Please verify your email address for your account. Click the link below to continue:</p>
-    <p style="margin:24px 0">
-      <a href="%s" style="background:#ffffff;color:#0a0a0a;padding:10px 20px;text-decoration:none;font-weight:bold;display:inline-block">VERIFY EMAIL</a>
-    </p>
-    <p style="color:#888;font-size:12px">This link expires in %d minutes. If you did not request this, ignore this email.</p>
-    <hr style="border-color:#333">
-    <p style="color:#555;font-size:11px">Portfolio Admin System</p>
-  </div>
-</body>
-</html>`, html.EscapeString(account.Name), html.EscapeString(verificationURL), int(s.options.EmailVerificationTTL.Minutes()))
+	htmlBody := verificationEmailHTML(account.Name, verificationURL, s.options.EmailVerificationTTL)
 
+	log.Printf("email verification: attempting smtp send to %s", account.Email)
 	if err := s.mail.Send(account.Email, "Verify Your Email", htmlBody); err != nil {
-		return fmt.Errorf("send verification email: %w", err)
+		log.Printf("email verification: failed to send verification email to %s: %v", account.Email, err)
+		return fmt.Errorf("%w: send verification email: %v", ErrEmailDeliveryFailed, err)
 	}
 
 	log.Printf("email verification: verification email sent to %s", account.Email)
@@ -460,44 +467,41 @@ func (s *Service) SendVerificationEmail(ctx context.Context, command SendVerific
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, command VerifyEmailCommand) (VerifyEmailResult, error) {
-	email := strings.TrimSpace(command.Email)
 	token := strings.TrimSpace(command.Token)
-	if email == "" || token == "" || s.verifications == nil {
+	if token == "" || s.verifications == nil {
 		return VerifyEmailResult{}, ErrInvalidToken
 	}
 
-	value, err := s.verifications.FindByIdentifier(ctx, "email_verification:"+email)
+	identifier, err := s.verifications.FindIdentifierByValue(ctx, token)
 	if err != nil {
 		return VerifyEmailResult{}, ErrInvalidToken
 	}
 
-	var stored emailVerificationValue
-	if err := json.Unmarshal([]byte(value), &stored); err != nil {
+	email, ok := strings.CutPrefix(identifier, "email_verification:")
+	if !ok || strings.TrimSpace(email) == "" {
 		return VerifyEmailResult{}, ErrInvalidToken
 	}
 
-	if !strings.EqualFold(stored.Email, email) || !sameToken(stored.Token, token) {
+	storedToken, err := s.verifications.FindByIdentifier(ctx, identifier)
+	if err != nil || !sameToken(storedToken, token) {
 		return VerifyEmailResult{}, ErrInvalidToken
 	}
 
 	account, err := s.credentials.FindByEmail(ctx, email)
-	if err != nil || account.UserID != stored.UserID {
+	if err != nil {
 		return VerifyEmailResult{}, ErrInvalidToken
 	}
 
-	redirectURL := stored.CallbackURL
-	if strings.TrimSpace(command.CallbackURL) != "" {
-		redirectURL, err = s.normalizeCallbackURL(command.CallbackURL)
-		if err != nil {
-			return VerifyEmailResult{}, err
-		}
+	redirectURL, err := s.normalizeCallbackURL(command.CallbackURL)
+	if err != nil {
+		return VerifyEmailResult{}, err
 	}
 
-	if err := s.credentials.MarkEmailVerified(ctx, stored.UserID); err != nil {
+	if err := s.credentials.MarkEmailVerified(ctx, account.UserID); err != nil {
 		return VerifyEmailResult{}, fmt.Errorf("mark email verified: %w", err)
 	}
 
-	_ = s.verifications.DeleteByIdentifier(ctx, "email_verification:"+email)
+	_ = s.verifications.DeleteByIdentifier(ctx, identifier)
 
 	return VerifyEmailResult{
 		Email:       account.Email,
@@ -698,13 +702,6 @@ func (s *Service) credentialsByUserID(ctx context.Context, userID string) (Crede
 	return s.credentials.FindByUserID(ctx, userID)
 }
 
-type emailVerificationValue struct {
-	Token       string `json:"token"`
-	UserID      string `json:"user_id"`
-	Email       string `json:"email"`
-	CallbackURL string `json:"callback_url,omitempty"`
-}
-
 func (s *Service) emailVerificationURL(email string, token string, callbackURL string) (string, error) {
 	baseURL := strings.TrimRight(s.options.BackendURL, "/")
 	if baseURL == "" {
@@ -720,14 +717,32 @@ func (s *Service) emailVerificationURL(email string, token string, callbackURL s
 	}
 
 	query := verificationURL.Query()
-	query.Set("email", email)
 	query.Set("token", token)
 	if callbackURL != "" {
-		query.Set("callback_url", callbackURL)
+		query.Set("callbackURL", callbackURL)
 	}
 	verificationURL.RawQuery = query.Encode()
 
 	return verificationURL.String(), nil
+}
+
+func (s *Service) resetPasswordURL(token string, email string) (string, error) {
+	baseURL := strings.TrimRight(s.options.FrontendURL, "/")
+	if baseURL == "" {
+		baseURL = "http://localhost:3111"
+	}
+
+	resetURL, err := url.Parse(baseURL + "/reset-password")
+	if err != nil {
+		return "", err
+	}
+
+	query := resetURL.Query()
+	query.Set("token", token)
+	query.Set("email", email)
+	resetURL.RawQuery = query.Encode()
+
+	return resetURL.String(), nil
 }
 
 func (s *Service) normalizeCallbackURL(raw string) (string, error) {

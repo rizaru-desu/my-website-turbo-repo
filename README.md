@@ -148,15 +148,17 @@ Runtime routes:
 - `POST /api/v1/auth/logout` revokes the current cookie-backed session.
 - `GET /api/v1/auth/me` returns the current authenticated session.
 - `POST /api/v1/auth/forgot-password` sends a reset link when SMTP is configured.
-- `POST /api/v1/auth/email-verification` sends an email verification link. The request accepts `email` and optional `callback_url`.
+- `POST /api/v1/auth/email-verification` sends an email verification link. The request accepts `email` and optional `callbackURL`, matching Better Auth's client payload shape.
 - `GET /api/v1/auth/verify-email` verifies the email token, marks `user.emailVerified=true`, and redirects to the validated callback URL when provided.
 - `POST /api/v1/auth/2fa/*` routes cover TOTP setup, enable, disable, login verification, and backup-code regeneration.
 
 Email verification behavior:
 
-- Verification tokens are stored in the shared `verification` table with the `email_verification:<email>` identifier.
+- Verification tokens are stored in the shared `verification` table with the `email_verification:<email>` identifier and the raw token in `value`, matching Better Auth's `identifier/value/expiresAt` model.
 - Verification links are generated from `BACKEND_URL`, falling back to `http://localhost:3333`.
 - Callback URLs are optional and must either be a relative path such as `/dashboard` or an absolute URL with the same origin as `FRONTEND_URL`.
+- Verification links expose only `token` and optional `callbackURL`; they do not include the email address.
+- Verification email sends are protected without Redis by a PostgreSQL-backed per-email cooldown and an in-memory per-IP route limiter for single-instance deployments.
 - SMTP delivery is enabled when `SMTP_HOST` and `SMTP_FROM` are configured.
 
 Relevant auth environment variables:
@@ -170,7 +172,13 @@ SMTP_USERNAME=example
 SMTP_PASSWORD=secret
 SMTP_FROM=no-reply@example.com
 SMTP_FROM_NAME="Portfolio Admin"
+AUTH_EMAIL_VERIFICATION_COOLDOWN=60s
+AUTH_EMAIL_VERIFICATION_MAX_PER_HOUR=5
+AUTH_AUTH_ROUTE_RATE_LIMIT_WINDOW=1m
+AUTH_AUTH_ROUTE_RATE_LIMIT_MAX=5
 ```
+
+For Gmail or Google Workspace SMTP, use the full mailbox address as `SMTP_USERNAME`. If the app password is copied in grouped form, the backend strips spaces before authentication.
 
 Swagger note:
 

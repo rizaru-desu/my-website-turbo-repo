@@ -639,6 +639,13 @@ var (
 		Name:       "verification",
 		Columns:    VerificationColumns,
 		PrimaryKey: []*schema.Column{VerificationColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "verification_identifier_idx",
+				Unique:  false,
+				Columns: []*schema.Column{VerificationColumns[1]},
+			},
+		},
 	}
 	// VisitorLogColumns holds the columns for the "visitorLog" table.
 	VisitorLogColumns = []*schema.Column{
