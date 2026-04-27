@@ -13,6 +13,7 @@ import (
 	httpHandler "api/internal/delivery/http/handler"
 	"api/internal/delivery/http/middleware"
 	authinfra "api/internal/infrastructure/auth"
+	mailinfra "api/internal/infrastructure/mail"
 	monitoringinfra "api/internal/infrastructure/monitoring"
 	authstore "api/internal/infrastructure/persistence/auth"
 	"api/internal/infrastructure/persistence/ent"
@@ -67,7 +68,6 @@ func newHandler(databaseClients ...*ent.Client) http.Handler {
 	)
 	authHandler.RegisterRoutes(mux)
 
-
 	securityConfig := config.SecurityConfigForEnvironment(environment)
 	corsConfig := config.DefaultCORSConfig()
 
@@ -77,7 +77,9 @@ func newHandler(databaseClients ...*ent.Client) http.Handler {
 
 func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *authusecase.Service {
 	clock := authinfra.SystemClock{}
-	return authusecase.NewService(
+	smtpConfig := config.LoadSMTPConfig()
+
+	svc := authusecase.NewService(
 		authstore.NewEntCredentialRepository(databaseClient),
 		authstore.NewEntSessionRepository(databaseClient, clock.Now),
 		authinfra.NewJWTManager(authConfig.JWTSecret, authConfig.Issuer),
@@ -88,14 +90,35 @@ func newAuthService(databaseClient *ent.Client, authConfig config.AuthConfig) *a
 			Issuer:         authConfig.Issuer,
 			AccessTokenTTL: authConfig.AccessTokenTTL,
 			RememberMeTTL:  authConfig.RememberMeTTL,
-			Cookie: authusecase.CookieOptions{
-				Name:     authConfig.Cookie.Name,
-				Secure:   authConfig.Cookie.Secure,
-				HTTPOnly: authConfig.Cookie.HTTPOnly,
-				SameSite: sameSiteString(authConfig.Cookie.SameSite),
-			},
+			FrontendURL:    stringEnvFallback("FRONTEND_URL", "http://localhost:3111"),
 		},
 	)
+
+	if databaseClient != nil {
+		svc.SetVerifications(authstore.NewEntVerificationRepository(databaseClient, clock.Now))
+		svc.SetTwoFactors(authstore.NewEntTwoFactorRepository(databaseClient))
+	}
+
+	totpIssuer := stringEnvFallback("TOTP_ISSUER", "PortfolioAdmin")
+	svc.SetTOTP(authinfra.NewTOTPManager(totpIssuer, authConfig.Secret))
+	log.Println("TOTP 2FA dikonfigurasi, issuer:", totpIssuer)
+
+	if smtpConfig.Enabled() {
+		svc.SetMailSender(mailinfra.NewSMTPMailSender(smtpConfig))
+		log.Println("SMTP mail sender dikonfigurasi:", smtpConfig.Host)
+	} else {
+		log.Println("SMTP belum dikonfigurasi; forgot password tidak aktif")
+	}
+
+	return svc
+}
+
+func stringEnvFallback(key string, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return strings.TrimRight(value, "/")
+	}
+
+	return fallback
 }
 
 func optionalDatabaseClient(databaseClients ...*ent.Client) *ent.Client {
@@ -104,19 +127,6 @@ func optionalDatabaseClient(databaseClients ...*ent.Client) *ent.Client {
 	}
 
 	return databaseClients[0]
-}
-
-func sameSiteString(value http.SameSite) string {
-	switch value {
-	case http.SameSiteStrictMode:
-		return "strict"
-	case http.SameSiteNoneMode:
-		return "none"
-	case http.SameSiteLaxMode:
-		return "lax"
-	default:
-		return "default"
-	}
 }
 
 func newDatabaseClient(ctx context.Context) (*ent.Client, error) {

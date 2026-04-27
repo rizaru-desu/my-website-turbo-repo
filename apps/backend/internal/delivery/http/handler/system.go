@@ -94,12 +94,6 @@ func (h *SystemHandler) APIIndex(w http.ResponseWriter, r *http.Request) {
 				Description: "Return the authenticated user and session claims.",
 				Protected:   true,
 			},
-			{
-				Method:      http.MethodGet,
-				Path:        "/api/v1/auth/options",
-				Description: "Expose safe authentication configuration for clients.",
-				Protected:   false,
-			},
 		},
 	})
 }

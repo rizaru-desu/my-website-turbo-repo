@@ -18,7 +18,12 @@ type AuthService interface {
 	Login(ctx context.Context, command authusecase.LoginCommand) (authusecase.LoginResult, error)
 	Logout(ctx context.Context, token string) error
 	VerifyToken(ctx context.Context, token string) (authusecase.TokenClaims, error)
-	Options() authusecase.Options
+	ForgotPassword(ctx context.Context, command authusecase.ForgotPasswordCommand) error
+	SetupTOTP(ctx context.Context, userID string) (authusecase.SetupTOTPResult, error)
+	EnableTOTP(ctx context.Context, command authusecase.EnableTOTPCommand) error
+	DisableTOTP(ctx context.Context, command authusecase.DisableTOTPCommand) error
+	VerifyLoginTOTP(ctx context.Context, command authusecase.VerifyTOTPCommand) (authusecase.LoginResult, error)
+	RegenerateBackupCodes(ctx context.Context, command authusecase.RegenerateBackupCodesCommand) ([]string, error)
 }
 
 type AuthCookieConfig struct {
@@ -41,9 +46,29 @@ type LoginRequest struct {
 	RememberMe bool   `json:"remember_me"`
 }
 
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type VerifyTOTPRequest struct {
+	TwoFactorToken string `json:"two_factor_token"`
+	Code           string `json:"code"`
+}
+
+type EnableTOTPRequest struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
+type DisableTOTPRequest struct {
+	Password string `json:"password"`
+}
+
+type RegenerateBackupCodesRequest struct {
+	Password string `json:"password"`
+}
+
 type LoginResponse struct {
-	Token      string                        `json:"access_token"`
-	TokenType  string                        `json:"token_type"`
 	ExpiresAt  time.Time                     `json:"expires_at"`
 	ExpiresIn  int64                         `json:"expires_in"`
 	RememberMe bool                          `json:"remember_me"`
@@ -59,16 +84,6 @@ type MeResponse struct {
 	RememberMe bool                          `json:"remember_me"`
 }
 
-type AuthOptionsResponse struct {
-	Issuer               string `json:"issuer"`
-	AccessTokenExpiresIn int64  `json:"access_token_expires_in"`
-	RememberMeExpiresIn  int64  `json:"remember_me_expires_in"`
-	CookieName           string `json:"cookie_name"`
-	CookieSecure         bool   `json:"cookie_secure"`
-	CookieHTTPOnly       bool   `json:"cookie_http_only"`
-	CookieSameSite       string `json:"cookie_same_site"`
-}
-
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
@@ -81,7 +96,12 @@ func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+authPath+"/login", h.Login)
 	mux.HandleFunc("POST "+authPath+"/logout", h.Logout)
 	mux.HandleFunc("GET "+authPath+"/me", h.Me)
-	mux.HandleFunc("GET "+authPath+"/options", h.Options)
+	mux.HandleFunc("POST "+authPath+"/forgot-password", h.ForgotPassword)
+	mux.HandleFunc("POST "+authPath+"/2fa/setup", h.SetupTOTP)
+	mux.HandleFunc("POST "+authPath+"/2fa/enable", h.EnableTOTP)
+	mux.HandleFunc("POST "+authPath+"/2fa/disable", h.DisableTOTP)
+	mux.HandleFunc("POST "+authPath+"/2fa/verify", h.VerifyLoginTOTP)
+	mux.HandleFunc("POST "+authPath+"/2fa/backup-codes/regenerate", h.RegenerateBackupCodes)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -114,10 +134,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if result.RequiresTwoFactor {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"requires_two_factor": true,
+			"two_factor_token":    result.TwoFactorToken,
+		})
+		return
+	}
+
 	http.SetCookie(w, h.authCookie(result.Token, result.ExpiresAt, result.ExpiresIn))
 	writeJSON(w, http.StatusOK, LoginResponse{
-		Token:      result.Token,
-		TokenType:  result.TokenType,
 		ExpiresAt:  result.ExpiresAt,
 		ExpiresIn:  int64(result.ExpiresIn.Seconds()),
 		RememberMe: result.RememberMe,
@@ -131,7 +157,12 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := tokenFromRequest(r, h.cookie.Name)
+	token := sessionTokenFromCookie(r, h.cookie.Name)
+	if token == "" {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
 	if err := h.service.Logout(r.Context(), token); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to logout"})
 		return
@@ -147,7 +178,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := h.service.VerifyToken(r.Context(), tokenFromRequest(r, h.cookie.Name))
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
 		return
@@ -168,22 +199,32 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AuthHandler) Options(w http.ResponseWriter, _ *http.Request) {
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if h.service == nil {
 		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
 		return
 	}
 
-	options := h.service.Options()
-	writeJSON(w, http.StatusOK, AuthOptionsResponse{
-		Issuer:               options.Issuer,
-		AccessTokenExpiresIn: int64(options.AccessTokenTTL.Seconds()),
-		RememberMeExpiresIn:  int64(options.RememberMeTTL.Seconds()),
-		CookieName:           h.cookie.Name,
-		CookieSecure:         h.cookie.Secure,
-		CookieHTTPOnly:       h.cookie.HTTPOnly,
-		CookieSameSite:       sameSiteName(h.cookie.SameSite),
-	})
+	var payload ForgotPasswordRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	email := strings.TrimSpace(payload.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "valid email is required"})
+		return
+	}
+
+	if err := h.service.ForgotPassword(r.Context(), authusecase.ForgotPasswordCommand{Email: email}); err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to process request"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "if the email exists, a reset link has been sent"})
 }
 
 func (h *AuthHandler) authCookie(token string, expiresAt time.Time, ttl time.Duration) *http.Cookie {
@@ -213,27 +254,13 @@ func (h *AuthHandler) clearCookie() *http.Cookie {
 	}
 }
 
-func tokenFromRequest(r *http.Request, cookieName string) string {
-	if token := bearerToken(r); token != "" {
-		return token
-	}
-
+func sessionTokenFromCookie(r *http.Request, cookieName string) string {
 	cookie, err := r.Cookie(cookieName)
 	if err != nil {
 		return ""
 	}
 
 	return cookie.Value
-}
-
-func bearerToken(r *http.Request) string {
-	header := strings.TrimSpace(r.Header.Get("Authorization"))
-	scheme, token, ok := strings.Cut(header, " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") {
-		return ""
-	}
-
-	return strings.TrimSpace(token)
 }
 
 func clientIP(r *http.Request) string {
@@ -250,26 +277,156 @@ func clientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
+func (h *AuthHandler) SetupTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	result, err := h.service.SetupTOTP(r.Context(), claims.UserID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrTwoFactorExists) {
+			status = http.StatusConflict
+		}
+		writeJSON(w, status, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *AuthHandler) EnableTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	var payload EnableTOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	err = h.service.EnableTOTP(r.Context(), authusecase.EnableTOTPCommand{
+		UserID:   claims.UserID,
+		Code:     strings.TrimSpace(payload.Code),
+		Password: payload.Password,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+		} else if errors.Is(err, authusecase.ErrInvalidTOTPCode) {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *AuthHandler) DisableTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	var payload DisableTOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	err = h.service.DisableTOTP(r.Context(), authusecase.DisableTOTPCommand{
+		UserID:   claims.UserID,
+		Password: payload.Password,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+		}
+		writeJSON(w, status, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *AuthHandler) VerifyLoginTOTP(w http.ResponseWriter, r *http.Request) {
+	var payload VerifyTOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	result, err := h.service.VerifyLoginTOTP(r.Context(), authusecase.VerifyTOTPCommand{
+		TwoFactorToken: strings.TrimSpace(payload.TwoFactorToken),
+		Code:           strings.TrimSpace(payload.Code),
+	})
+	if err != nil {
+		status := http.StatusUnauthorized
+		if errors.Is(err, authusecase.ErrInvalidTOTPCode) {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, ErrorResponse{Error: authErrorMessage(err)})
+		return
+	}
+
+	http.SetCookie(w, h.authCookie(result.Token, result.ExpiresAt, result.ExpiresIn))
+	writeJSON(w, http.StatusOK, LoginResponse{
+		ExpiresAt:  result.ExpiresAt,
+		ExpiresIn:  int64(result.ExpiresIn.Seconds()),
+		RememberMe: result.RememberMe,
+		User:       result.User,
+	})
+}
+
+func (h *AuthHandler) RegenerateBackupCodes(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	var payload RegenerateBackupCodesRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	codes, err := h.service.RegenerateBackupCodes(r.Context(), authusecase.RegenerateBackupCodesCommand{
+		UserID:   claims.UserID,
+		Password: payload.Password,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+		}
+		writeJSON(w, status, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"backup_codes": codes})
+}
+
 func authErrorMessage(err error) string {
 	switch {
 	case errors.Is(err, authusecase.ErrInactiveUser):
 		return "user is inactive"
 	case errors.Is(err, authusecase.ErrInvalidCredentials):
 		return "invalid email or password"
+	case errors.Is(err, authusecase.ErrInvalidTOTPCode):
+		return "invalid verification code"
+	case errors.Is(err, authusecase.ErrInvalidToken):
+		return "invalid or expired token"
 	default:
 		return "failed to authenticate"
-	}
-}
-
-func sameSiteName(value http.SameSite) string {
-	switch value {
-	case http.SameSiteStrictMode:
-		return "strict"
-	case http.SameSiteNoneMode:
-		return "none"
-	case http.SameSiteLaxMode:
-		return "lax"
-	default:
-		return "default"
 	}
 }
