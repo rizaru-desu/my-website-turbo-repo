@@ -1,0 +1,155 @@
+.ui-card {
+  color: var(--ui-card-foreground, inherit);
+  background: var(--ui-card-background, transparent);
+}
+
+.ui-card-header,
+.ui-card-content,
+.ui-card-footer {
+  padding: 0;
+}
+
+.ui-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-label-foreground, inherit);
+  font-family: var(--ui-font-label, inherit);
+  font-size: var(--ui-label-size, 0.875rem);
+  line-height: 1;
+}
+
+.ui-input {
+  width: 100%;
+  min-height: var(--ui-input-height, 44px);
+  box-sizing: border-box;
+  border: var(--ui-input-border, 1px solid currentColor);
+  border-radius: var(--ui-radius, 8px);
+  padding: var(--ui-input-padding, 10px 12px);
+  color: var(--ui-input-foreground, inherit);
+  background: var(--ui-input-background, transparent);
+  font: var(--ui-input-font, inherit);
+  outline: none;
+  box-shadow: var(--ui-input-shadow, none);
+}
+
+.ui-input::placeholder {
+  color: var(
+    --ui-input-placeholder,
+    color-mix(in srgb, currentColor 45%, transparent)
+  );
+}
+
+.ui-input:focus {
+  border-color: var(--ui-focus-border, currentColor);
+  box-shadow: var(--ui-input-focus-shadow, 0 0 0 3px rgba(59, 130, 246, 0.25));
+}
+
+.ui-checkbox {
+  position: relative;
+  width: var(--ui-checkbox-width, 18px);
+  height: var(--ui-checkbox-height, 18px);
+  margin: 0;
+  appearance: none;
+  cursor: pointer;
+  border: var(--ui-checkbox-border, 1px solid currentColor);
+  border-radius: var(--ui-checkbox-radius, 4px);
+  background: var(--ui-checkbox-background, transparent);
+  box-shadow: var(--ui-checkbox-shadow, none);
+}
+
+.ui-checkbox::after {
+  content: "";
+  position: absolute;
+  top: var(--ui-checkbox-knob-top, 50%);
+  left: var(--ui-checkbox-knob-left, 50%);
+  width: var(--ui-checkbox-knob-width, 8px);
+  height: var(--ui-checkbox-knob-height, 8px);
+  background: var(--ui-checkbox-knob, currentColor);
+  opacity: var(--ui-checkbox-knob-opacity, 0);
+  transform: var(--ui-checkbox-knob-transform, translate(-50%, -50%));
+  transition: var(
+    --ui-checkbox-transition,
+    opacity 150ms ease,
+    transform 150ms ease
+  );
+}
+
+.ui-checkbox:checked {
+  border-color: var(--ui-checkbox-checked-border, currentColor);
+  background: var(--ui-checkbox-checked-background, currentColor);
+}
+
+.ui-checkbox:checked::after {
+  opacity: var(--ui-checkbox-checked-knob-opacity, 1);
+  background: var(--ui-checkbox-checked-knob, Canvas);
+  transform: var(--ui-checkbox-checked-knob-transform, translate(-50%, -50%));
+}
+
+.ui-checkbox:focus-visible {
+  outline: var(--ui-focus-outline, 2px solid currentColor);
+  outline-offset: var(--ui-focus-outline-offset, 2px);
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ui-button-height, 40px);
+  border: var(--ui-button-border, 1px solid transparent);
+  border-radius: var(--ui-radius, 8px);
+  padding: var(--ui-button-padding, 0 14px);
+  color: var(--ui-button-foreground, Canvas);
+  background: var(--ui-button-background, CanvasText);
+  font-family: var(--ui-font-button, inherit);
+  font-size: var(--ui-button-size, 0.875rem);
+  line-height: 1.35;
+  letter-spacing: 0;
+  cursor: pointer;
+  box-shadow: var(--ui-button-shadow, none);
+  transition: var(
+    --ui-button-transition,
+    background-color 150ms ease,
+    color 150ms ease
+  );
+}
+
+.ui-button:hover {
+  filter: var(--ui-button-hover-filter, none);
+  transform: var(--ui-button-hover-transform, none);
+  box-shadow: var(--ui-button-hover-shadow, var(--ui-button-shadow, none));
+}
+
+.ui-button:active {
+  transform: var(--ui-button-active-transform, none);
+  box-shadow: var(--ui-button-active-shadow, var(--ui-button-shadow, none));
+}
+
+.ui-button:focus-visible {
+  outline: var(--ui-focus-outline, 2px solid currentColor);
+  outline-offset: var(--ui-focus-outline-offset, 2px);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: var(--ui-disabled-opacity, 0.6);
+  filter: var(--ui-button-disabled-filter, none);
+  transform: none;
+  box-shadow: var(--ui-button-disabled-shadow, var(--ui-button-shadow, none));
+}
+
+.ui-button--ghost {
+  color: var(--ui-button-ghost-foreground, currentColor);
+  background: var(--ui-button-ghost-background, transparent);
+}
+
+.ui-button--lg {
+  min-height: var(--ui-button-lg-height, 48px);
+  padding: var(--ui-button-lg-padding, 0 18px);
+}
+
+.ui-button--icon {
+  width: var(--ui-button-icon-size, 40px);
+  min-height: var(--ui-button-icon-size, 40px);
+  padding: 0;
+}
