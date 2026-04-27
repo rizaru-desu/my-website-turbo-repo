@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { AppLayout } from "../layout";
 
 type PageKey =
   | "dashboard"
@@ -101,27 +102,6 @@ const IconCog = ({ color = "#bdc0cc" }: IconProps) => (
   </Icon>
 );
 
-const IconSearch = () => (
-  <Icon>
-    <rect x="2" y="2" width="8" height="2" fill="#f8f8f2" />
-    <rect x="2" y="2" width="2" height="8" fill="#f8f8f2" />
-    <rect x="8" y="2" width="2" height="8" fill="#f8f8f2" />
-    <rect x="2" y="8" width="8" height="2" fill="#f8f8f2" />
-    <rect x="10" y="10" width="2" height="2" fill="#f8f8f2" />
-    <rect x="12" y="12" width="2" height="2" fill="#f8f8f2" />
-  </Icon>
-);
-
-const IconBell = () => (
-  <Icon>
-    <rect x="6" y="2" width="4" height="1" fill="#ffb86c" />
-    <rect x="4" y="3" width="8" height="1" fill="#ffb86c" />
-    <rect x="3" y="4" width="10" height="7" fill="#ffb86c" />
-    <rect x="2" y="11" width="12" height="1" fill="#ffb86c" />
-    <rect x="6" y="12" width="4" height="2" fill="#ffb86c" />
-  </Icon>
-);
-
 const IconPlus = () => (
   <Icon>
     <rect x="7" y="3" width="2" height="10" fill="#282a36" />
@@ -157,34 +137,6 @@ const IconEye = ({ color = "#bd93f9" }: IconProps) => (
     <rect x="6" y="6" width="4" height="4" fill="#282a36" />
     <rect x="7" y="7" width="2" height="2" fill="#f8f8f2" />
   </Icon>
-);
-
-const PixelSword = () => (
-  <svg viewBox="0 0 16 16" width="28" height="28" shapeRendering="crispEdges">
-    <rect x="11" y="2" width="3" height="3" fill="#bd93f9" />
-    <rect x="10" y="3" width="3" height="3" fill="#bd93f9" />
-    <rect x="9" y="4" width="3" height="3" fill="#bd93f9" />
-    <rect x="8" y="5" width="3" height="3" fill="#bd93f9" />
-    <rect x="7" y="6" width="3" height="3" fill="#bd93f9" />
-    <rect x="6" y="7" width="3" height="3" fill="#bd93f9" />
-    <rect x="5" y="8" width="3" height="3" fill="#bd93f9" />
-    <rect x="4" y="9" width="3" height="3" fill="#bd93f9" />
-    <rect x="2" y="10" width="4" height="3" fill="#ff79c6" />
-    <rect x="3" y="13" width="2" height="2" fill="#8be9fd" />
-  </svg>
-);
-
-const PixelAvatar = () => (
-  <svg viewBox="0 0 16 16" width="32" height="32" shapeRendering="crispEdges">
-    <rect x="4" y="2" width="8" height="6" fill="#ffb86c" />
-    <rect x="3" y="3" width="10" height="5" fill="#ffb86c" />
-    <rect x="5" y="5" width="1" height="1" fill="#282a36" />
-    <rect x="10" y="5" width="1" height="1" fill="#282a36" />
-    <rect x="6" y="7" width="4" height="1" fill="#282a36" />
-    <rect x="4" y="1" width="8" height="2" fill="#bd93f9" />
-    <rect x="2" y="9" width="12" height="6" fill="#50fa7b" />
-    <rect x="4" y="11" width="8" height="1" fill="#44475a" />
-  </svg>
 );
 
 const IsoChest = () => (
@@ -1010,102 +962,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   return (
-    <div className="admin-shell" data-testid="app-shell">
-      <aside className="sidebar" data-testid="sidebar">
-        <div className="sidebar-logo">
-          <PixelSword />
-          <div>
-            <div className="title">PIXEL.CMS</div>
-            <div className="subtitle">v4.20 ~ retro edition</div>
-          </div>
-        </div>
-
-        <div className="sidebar-section-label">~ MAIN</div>
-        {navItems.slice(0, 4).map((item) => (
-          <button
-            key={item.key}
-            className={`nav-item ${page === item.key ? "active" : ""}`}
-            onClick={() => setPage(item.key)}
-            data-testid={`nav-${item.key}`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        <div className="sidebar-section-label">~ ENGAGE</div>
-        {navItems.slice(4).map((item) => (
-          <button
-            key={item.key}
-            className={`nav-item ${page === item.key ? "active" : ""}`}
-            onClick={() => setPage(item.key)}
-            data-testid={`nav-${item.key}`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        <div className="xp-card" data-testid="xp-card">
-          <div className="xp-name">KAI / LVL 42</div>
-          <div className="xp-copy">XP TO LVL 43</div>
-          <div className="xp-bar">
-            <div className="xp-bar-fill" />
-          </div>
-          <div className="xp-copy">6,820 / 10,000</div>
-        </div>
-      </aside>
-
-      <header className="topbar" data-testid="topbar">
-        <div className="topbar-actions">
-          <span className="pixel-badge live" data-testid="status-online">
-            ONLINE
-          </span>
-          <button className="pix-btn pix-btn-ghost bell-btn">
-            <IconBell />
-            <span className="bell-count">3</span>
-          </button>
-          <div className="avatar-block" data-testid="user-block">
-            <PixelAvatar />
-            <div>
-              <div className="name">KAI M.</div>
-              <div className="role">ADMIN</div>
-            </div>
-          </div>
-          <button
-            className="pix-btn pix-btn-ghost"
-            onClick={onLogout}
-            data-testid="logout-btn"
-          >
-            &lt;- LOGOUT
-          </button>
-        </div>
-      </header>
-
-      <main className="main" data-testid="main-content">
-        <div className="page-header">
-          <div className="page-title">
-            <div className="crumbs">
-              &gt; <b>{meta.crumb}</b>
-              <span className="blink" />
-            </div>
-            <h1 data-testid="page-title">{meta.title}</h1>
-            <div className="sub">{meta.sub}</div>
-          </div>
-          <div className="row-actions">
-            <button className="pix-btn pix-btn-ghost">EXPORT</button>
-            <button className="pix-btn">
-              <IconPlus /> QUICK ACTION
-            </button>
-          </div>
-        </div>
-
-        {renderPage()}
-
-        <div className="cms-footer">
-          PRESS [ESC] TO RETURN ~ PIXEL.CMS v4.20 / MADE WITH &lt;3 &amp; PIXELS
-        </div>
-      </main>
-    </div>
+    <AppLayout
+      currentPage={page}
+      onNavigate={setPage}
+      onLogout={onLogout}
+      navItems={navItems}
+      pageTitle={meta}
+    >
+      {renderPage()}
+    </AppLayout>
   );
 }
