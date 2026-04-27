@@ -12,7 +12,7 @@ func TestCORSAllowedOriginSetsHeaders(t *testing.T) {
 			"http://localhost:3111": {},
 		},
 		AllowedMethods:   "GET, POST, OPTIONS",
-		AllowedHeaders:   "Accept, Authorization, Content-Type",
+		AllowedHeaders:   "Accept, Content-Type",
 		AllowCredentials: true,
 		PreflightStatus:  http.StatusNoContent,
 	}
@@ -42,7 +42,7 @@ func TestCORSDisallowedOriginOmitsHeaders(t *testing.T) {
 			"http://localhost:3111": {},
 		},
 		AllowedMethods:  "GET, POST, OPTIONS",
-		AllowedHeaders:  "Accept, Authorization, Content-Type",
+		AllowedHeaders:  "Accept, Content-Type",
 		PreflightStatus: http.StatusNoContent,
 	}
 
@@ -67,7 +67,7 @@ func TestCORSOptionsPreflightForAllowedOrigin(t *testing.T) {
 			"http://localhost:3111": {},
 		},
 		AllowedMethods:   "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		AllowedHeaders:   "Accept, Authorization, Content-Type, X-Requested-With",
+		AllowedHeaders:   "Accept, Content-Type, X-Requested-With",
 		AllowCredentials: true,
 		PreflightStatus:  http.StatusNoContent,
 	}

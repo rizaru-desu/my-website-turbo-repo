@@ -43,7 +43,7 @@ func DefaultCORSConfig() middleware.CORSConfig {
 			"http://localhost:3222": {},
 		},
 		AllowedMethods:   "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-		AllowedHeaders:   "Accept, Authorization, Content-Type, X-Requested-With",
+		AllowedHeaders:   "Accept, Content-Type, X-Requested-With",
 		AllowCredentials: true,
 		PreflightStatus:  http.StatusNoContent,
 	}
