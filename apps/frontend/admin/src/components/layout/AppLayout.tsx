@@ -53,10 +53,6 @@ export default function AppLayout({
               <h1 data-testid="page-title">{pageTitle.title}</h1>
               <div className="sub">{pageTitle.sub}</div>
             </div>
-            <div className="row-actions">
-              <button className="pix-btn pix-btn-ghost">EXPORT</button>
-              <button className="pix-btn">+ QUICK ACTION</button>
-            </div>
           </div>
         )}
         {children}

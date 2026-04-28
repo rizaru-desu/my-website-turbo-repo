@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "../layout";
+import { navItems, pageMeta } from "../../constants/navigation";
 
 type PageKey =
   | "dashboard"
@@ -31,31 +33,12 @@ const Icon = ({ children }: { children: ReactNode }) => (
   </svg>
 );
 
-const IconDashboard = ({ color = "#bd93f9" }: IconProps) => (
-  <Icon>
-    <rect x="2" y="2" width="5" height="5" fill={color} />
-    <rect x="9" y="2" width="5" height="3" fill="#8be9fd" />
-    <rect x="9" y="7" width="5" height="7" fill="#ff79c6" />
-    <rect x="2" y="9" width="5" height="5" fill="#50fa7b" />
-  </Icon>
-);
-
 const IconFolder = ({ color = "#f1fa8c" }: IconProps) => (
   <Icon>
     <rect x="1" y="4" width="6" height="2" fill={color} />
     <rect x="1" y="5" width="14" height="9" fill={color} />
     <rect x="1" y="5" width="14" height="1" fill="#ffb86c" />
     <rect x="1" y="13" width="14" height="1" fill="#282a36" />
-  </Icon>
-);
-
-const IconPost = ({ color = "#8be9fd" }: IconProps) => (
-  <Icon>
-    <rect x="2" y="2" width="12" height="12" fill={color} />
-    <rect x="4" y="4" width="8" height="1" fill="#282a36" />
-    <rect x="4" y="6" width="8" height="1" fill="#282a36" />
-    <rect x="4" y="8" width="6" height="1" fill="#282a36" />
-    <rect x="4" y="10" width="8" height="1" fill="#282a36" />
   </Icon>
 );
 
@@ -88,17 +71,6 @@ const IconChart = ({ color = "#50fa7b" }: IconProps) => (
     <rect x="5" y="7" width="2" height="7" fill="#8be9fd" />
     <rect x="8" y="4" width="2" height="10" fill="#bd93f9" />
     <rect x="11" y="2" width="2" height="12" fill="#ff79c6" />
-  </Icon>
-);
-
-const IconCog = ({ color = "#bdc0cc" }: IconProps) => (
-  <Icon>
-    <rect x="7" y="1" width="2" height="2" fill={color} />
-    <rect x="7" y="13" width="2" height="2" fill={color} />
-    <rect x="1" y="7" width="2" height="2" fill={color} />
-    <rect x="13" y="7" width="2" height="2" fill={color} />
-    <rect x="4" y="4" width="8" height="8" fill={color} />
-    <rect x="6" y="6" width="4" height="4" fill="#282a36" />
   </Icon>
 );
 
@@ -308,55 +280,6 @@ const skills = [
   { name: "TYPOGRAPHY", level: 90, colorClass: "c-yellow" },
   { name: "TAILWIND", level: 88, colorClass: "c-green" },
 ];
-
-const navItems: Array<{ key: PageKey; label: string; icon: ReactNode }> = [
-  { key: "dashboard", label: "DASHBOARD", icon: <IconDashboard /> },
-  { key: "projects", label: "PROJECTS", icon: <IconFolder /> },
-  { key: "posts", label: "POSTS", icon: <IconPost /> },
-  { key: "skills", label: "SKILLS", icon: <IconStar /> },
-  { key: "messages", label: "MESSAGES", icon: <IconMail /> },
-  { key: "analytics", label: "ANALYTICS", icon: <IconChart /> },
-  { key: "settings", label: "SETTINGS", icon: <IconCog /> },
-];
-
-const pageMeta: Record<PageKey, { crumb: string; title: string; sub: string }> =
-  {
-    dashboard: {
-      crumb: "HOME / DASHBOARD",
-      title: "DASHBOARD",
-      sub: "Overview of your portfolio quests, stats, and live sessions.",
-    },
-    projects: {
-      crumb: "HOME / PROJECTS",
-      title: "PROJECTS",
-      sub: "Manage published and drafted projects. Level them up.",
-    },
-    posts: {
-      crumb: "HOME / POSTS",
-      title: "BLOG POSTS",
-      sub: "Write, edit, and publish devlog-style entries.",
-    },
-    skills: {
-      crumb: "HOME / SKILLS",
-      title: "SKILLS & BIO",
-      sub: "Your character sheet: abilities, achievements, and story.",
-    },
-    messages: {
-      crumb: "HOME / INBOX",
-      title: "MESSAGES",
-      sub: "Client mail and collaboration requests.",
-    },
-    analytics: {
-      crumb: "HOME / ANALYTICS",
-      title: "ANALYTICS",
-      sub: "Traffic, sources, and campaign performance.",
-    },
-    settings: {
-      crumb: "HOME / SETTINGS",
-      title: "SETTINGS",
-      sub: "Account configuration, themes, and danger zone.",
-    },
-  };
 
 const StatTile = ({
   label,
@@ -910,37 +833,32 @@ const Settings = () => (
         <label>HANDLE</label>
         <input className="pix-input" defaultValue="@kai_pixels" />
       </div>
-      {["PUBLIC PROFILE", "EMAIL NOTIFICATIONS", "BETA FEATURES"].map(
-        (label) => (
-          <div className="setting-row" key={label}>
-            <span>{label}</span>
-            <div className="pix-switch on">
-              <div className="pix-switch-knob" />
-            </div>
-          </div>
-        ),
-      )}
-    </div>
-
-    <div className="cms-card accent-pink">
-      <div className="card-title-row">
-        <div className="card-title">&gt; DANGER ZONE</div>
-      </div>
-      <p className="danger-copy">
-        These actions are permanent. Export your data before changing critical
-        account settings.
-      </p>
-      <div className="row-actions">
-        <button className="pix-btn pix-btn-ghost">EXPORT DATA</button>
-        <button className="pix-btn pix-btn-red">DELETE ACCOUNT</button>
+      <div className="setting-row">
+        <span>EMAIL NOTIFICATIONS</span>
+        <div className="pix-switch on">
+          <div className="pix-switch-knob" />
+        </div>
       </div>
     </div>
   </div>
 );
 
 export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [page, setPage] = useState<PageKey>("dashboard");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialPage =
+    (location.state as { initialPage?: PageKey } | null)?.initialPage ??
+    "dashboard";
+  const [page, setPage] = useState<PageKey>(initialPage);
   const meta = pageMeta[page];
+
+  const handleNavigate = (newPage: PageKey) => {
+    if (newPage === "settings") {
+      navigate("/settings");
+    } else {
+      setPage(newPage);
+    }
+  };
 
   const renderPage = () => {
     switch (page) {
@@ -964,7 +882,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   return (
     <AppLayout
       currentPage={page}
-      onNavigate={setPage}
+      onNavigate={handleNavigate}
       onLogout={onLogout}
       navItems={navItems}
       pageTitle={meta}

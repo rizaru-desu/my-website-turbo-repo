@@ -7,10 +7,10 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
-  Checkbox,
   Input,
   Label,
   Separator,
+  Switch,
 } from "@repo/ui";
 import {
   authService,
@@ -110,12 +110,6 @@ export default function LoginPage() {
               loginForm.handleSubmit();
             }}
           >
-            {loginError && (
-              <div className="field-error" style={{ marginBottom: "1rem" }}>
-                ! {loginError}
-              </div>
-            )}
-
             <loginForm.Field
               name="username"
               validators={{
@@ -123,31 +117,24 @@ export default function LoginPage() {
                   !value ? "USERNAME/EMAIL REQUIRED" : undefined,
               }}
             >
-              {(field) => {
-                const error = getFieldError(field.state.meta.errors);
-
-                return (
-                  <div className="form-row">
-                    <Label htmlFor={field.name}>
-                      <IconUser />
-                      USERNAME/EMAIL
-                    </Label>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      autoComplete="username"
-                      data-testid="login-username"
-                      autoFocus
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                    />
-                    {error ? <p className="field-error">! {error}</p> : null}
-                  </div>
-                );
-              }}
+              {(field) => (
+                <div className="form-row">
+                  <Label htmlFor={field.name}>
+                    <IconUser />
+                    USERNAME/EMAIL
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    autoComplete="username"
+                    data-testid="login-username"
+                    autoFocus
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  />
+                </div>
+              )}
             </loginForm.Field>
 
             <loginForm.Field
@@ -157,32 +144,25 @@ export default function LoginPage() {
                   !value ? "PASSWORD REQUIRED" : undefined,
               }}
             >
-              {(field) => {
-                const error = getFieldError(field.state.meta.errors);
-
-                return (
-                  <div className="form-row">
-                    <Label htmlFor={field.name}>
-                      <IconLock />
-                      PASSWORD
-                    </Label>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type="password"
-                      value={field.state.value}
-                      placeholder="****************"
-                      autoComplete="current-password"
-                      data-testid="login-password"
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                    />
-                    {error ? <p className="field-error">! {error}</p> : null}
-                  </div>
-                );
-              }}
+              {(field) => (
+                <div className="form-row">
+                  <Label htmlFor={field.name}>
+                    <IconLock />
+                    PASSWORD
+                  </Label>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type="password"
+                    value={field.state.value}
+                    placeholder="****************"
+                    autoComplete="current-password"
+                    data-testid="login-password"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  />
+                </div>
+              )}
             </loginForm.Field>
 
             <div className="login-options">
@@ -192,7 +172,7 @@ export default function LoginPage() {
                     className="remember-toggle"
                     data-testid="remember-toggle"
                   >
-                    <Checkbox
+                    <Switch
                       checked={field.state.value}
                       aria-label="Remember me"
                       onBlur={field.handleBlur}
@@ -215,19 +195,44 @@ export default function LoginPage() {
             </div>
 
             <loginForm.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
+              selector={(state) => ({
+                canSubmit: state.canSubmit,
+                isSubmitting: state.isSubmitting,
+                submissionAttempts: state.submissionAttempts,
+                fieldMeta: state.fieldMeta,
+              })}
             >
-              {([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="login-submit"
-                  disabled={!canSubmit || isSubmitting}
-                  data-testid="login-submit"
-                >
-                  {isSubmitting ? "CONNECTING..." : "INSERT COIN > LOGIN"}
-                </Button>
-              )}
+              {({ canSubmit, isSubmitting, submissionAttempts, fieldMeta }) => {
+                const fieldErr = Object.values(fieldMeta ?? {})
+                  .flatMap((m) => m?.errors ?? [])
+                  .map((e) => getFieldError([e]))
+                  .find(Boolean);
+                const showFieldErr = submissionAttempts > 0 && fieldErr;
+                const errorMsg = loginError || (showFieldErr ? fieldErr : "");
+
+                return (
+                  <>
+                    {errorMsg && (
+                      <div
+                        className="field-error"
+                        style={{ marginBottom: "1rem" }}
+                        data-testid="login-error"
+                      >
+                        ! ERR_401: {errorMsg}
+                      </div>
+                    )}
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="login-submit"
+                      disabled={!canSubmit || isSubmitting}
+                      data-testid="login-submit"
+                    >
+                      {isSubmitting ? "CONNECTING..." : "INSERT COIN > LOGIN"}
+                    </Button>
+                  </>
+                );
+              }}
             </loginForm.Subscribe>
 
             <div className="login-divider-text">~ OR ~</div>

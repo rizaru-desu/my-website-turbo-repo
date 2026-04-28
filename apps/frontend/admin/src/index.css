@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Joystix Monospace";
+  src: url("./assets/joystix monospace.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-pixel: "Press Start 2P", "Courier New", monospace;
-  --font-terminal: "VT323", "Courier New", monospace;
+  --font-pixel: "Joystix Monospace", "Press Start 2P", "Courier New", monospace;
+  --font-terminal: "Joystix Monospace", "VT323", "Courier New", monospace;
 
   --color-bg: #282a36;
   --color-bg-2: #21222c;
@@ -26,6 +34,105 @@
   --animate-blink: blink 1s steps(2, start) infinite;
   --animate-float-pixel: float-pixel 4s steps(4, end) infinite;
   --animate-bob: bob 1.4s steps(4) infinite;
+}
+
+:root {
+  /* @repo/ui Input theme overrides → pixel/retro look */
+  --ui-input-height: auto;
+  --ui-input-border: 0;
+  --ui-radius: 0;
+  --ui-input-padding: 10px 12px;
+  --ui-input-foreground: #f8f8f2;
+  --ui-input-background: #21222c;
+  --ui-input-font:
+    1.05rem "Joystix Monospace", "VT323", "Courier New", monospace;
+  --ui-input-placeholder: #6272a4;
+  --ui-input-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 -3px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px #bd93f9;
+  --ui-focus-border: transparent;
+  --ui-input-focus-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 -3px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px #d4b3ff;
+
+  /* @repo/ui Button theme overrides → pixel/retro look */
+  --ui-button-height: auto;
+  --ui-button-border: 0;
+  --ui-button-padding: 10px 14px;
+  --ui-button-foreground: #282a36;
+  --ui-button-background: #bd93f9;
+  --ui-button-font:
+    "Joystix Monospace", "Press Start 2P", "Courier New", monospace;
+  --ui-button-size: 0.54rem;
+  --ui-button-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    0 4px 0 #21222c;
+  --ui-button-transition: transform 60ms steps(2), box-shadow 60ms steps(2);
+  --ui-button-hover-transform: translateY(-2px);
+  --ui-button-hover-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    0 6px 0 #21222c;
+  --ui-button-active-transform: translateY(2px);
+  --ui-button-active-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 -3px 0 rgba(255, 255, 255, 0.2),
+    0 1px 0 #21222c;
+  --ui-button-disabled-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.15), inset 0 -3px 0 rgba(0, 0, 0, 0.25),
+    0 4px 0 #21222c;
+  --ui-button-lg-height: auto;
+  --ui-button-lg-padding: 14px 22px;
+  --ui-button-icon-size: 40px;
+  --ui-button-ghost-foreground: #f8f8f2;
+  --ui-button-ghost-background: transparent;
+
+  /* @repo/ui Switch theme overrides → pixel toggle */
+  --ui-switch-width: 48px;
+  --ui-switch-height: 22px;
+  --ui-switch-radius: 0;
+  --ui-switch-border: 0;
+  --ui-switch-background: #21222c;
+  --ui-switch-shadow: inset 0 0 0 3px #6272a4;
+  --ui-switch-knob-width: 16px;
+  --ui-switch-knob-height: 16px;
+  --ui-switch-knob-radius: 0;
+  --ui-switch-knob-top: 3px;
+  --ui-switch-knob-left: 3px;
+  --ui-switch-knob: #6272a4;
+  --ui-switch-knob-transform: none;
+  --ui-switch-transition: background 120ms steps(3), box-shadow 120ms steps(3);
+  --ui-switch-knob-transition:
+    transform 120ms steps(3), background 120ms steps(3);
+  --ui-switch-checked-background: #21222c;
+  --ui-switch-checked-border: transparent;
+  --ui-switch-checked-shadow: inset 0 0 0 3px #50fa7b;
+  --ui-switch-checked-knob: #50fa7b;
+  --ui-switch-checked-knob-transform: translateX(26px);
+
+  /* @repo/ui Select theme overrides → pixel/retro look */
+  --ui-select-arrow-color: #bd93f9;
+  --ui-select-arrow-size: 0.6em;
+  --ui-select-menu-offset: 6px;
+  --ui-select-menu-border: 0;
+  --ui-select-menu-radius: 0;
+  --ui-select-menu-background: #21222c;
+  --ui-select-menu-foreground: #f8f8f2;
+  --ui-select-menu-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 -3px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 3px #bd93f9, 0 6px 0 #21222c;
+  --ui-select-menu-padding: 4px 0;
+  --ui-select-option-padding: 8px 12px;
+  --ui-select-option-active-background: rgba(189, 147, 249, 0.18);
+  --ui-select-option-active-foreground: #f8f8f2;
+  --ui-select-option-selected-background: #bd93f9;
+  --ui-select-option-selected-foreground: #282a36;
+  --ui-select-option-selected-weight: 400;
+
+  --ui-loading-background: #282a36;
+  --ui-loading-foreground: #f8f8f2;
+  --ui-loading-muted-foreground: #bdc0cc;
+  --ui-loading-font:
+    "Joystix Monospace", "Press Start 2P", "Courier New", monospace;
+  --ui-loading-text-size: 0.54rem;
 }
 
 @keyframes blink {
@@ -56,6 +163,7 @@
 
 :root {
   font-family:
+    "Joystix Monospace",
     Inter,
     ui-sans-serif,
     system-ui,
@@ -93,6 +201,51 @@ input {
 
 #root {
   min-height: 100svh;
+}
+
+/* Pixel/retro scrollbar — match Dracula palette and chunky pixel borders */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #bd93f9 #21222c;
+}
+
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #21222c;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    #21222c 0,
+    #21222c 2px,
+    #1a1b24 2px,
+    #1a1b24 4px
+  );
+  box-shadow:
+    inset 2px 0 0 #12131c,
+    inset -2px 0 0 #12131c;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #bd93f9;
+  border: 2px solid #21222c;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.25),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.45);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #d4b3ff;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #ff79c6;
+}
+
+::-webkit-scrollbar-corner {
+  background-color: #21222c;
 }
 
 @layer utilities {
@@ -333,7 +486,7 @@ input {
   }
 
   .admin-shell {
-    @apply grid min-h-svh text-text bg-bg;
+    @apply grid h-svh overflow-hidden text-text bg-bg;
     grid-template-areas: "sidebar topbar" "sidebar main";
     grid-template-columns: 240px minmax(0, 1fr);
     grid-template-rows: 64px minmax(0, 1fr);
@@ -357,7 +510,7 @@ input {
   }
 
   .sidebar {
-    @apply flex flex-col min-h-svh px-4 py-5 bg-bg-2 border-r-4 border-line;
+    @apply flex flex-col h-full overflow-hidden px-4 py-5 bg-bg-2 border-r-4 border-line;
     grid-area: sidebar;
     box-shadow: inset -4px 0 0 rgba(0, 0, 0, 0.5);
   }
@@ -885,10 +1038,12 @@ input {
     @apply w-full border-0 p-[10px] px-3 text-text bg-bg-2 outline-0;
     font-family: var(--font-terminal);
     font-size: 1.05rem;
+    border-radius: 0;
+    min-height: auto;
     box-shadow:
       inset 0 3px 0 rgba(0, 0, 0, 0.4),
       inset 0 -3px 0 rgba(255, 255, 255, 0.04),
-      0 0 0 3px #44475a;
+      0 0 0 3px #bd93f9;
   }
 
   .pix-textarea {
@@ -909,7 +1064,7 @@ input {
     box-shadow:
       inset 0 3px 0 rgba(0, 0, 0, 0.4),
       inset 0 -3px 0 rgba(255, 255, 255, 0.04),
-      0 0 0 3px #bd93f9;
+      0 0 0 3px #d4b3ff;
   }
 
   .pix-divider {

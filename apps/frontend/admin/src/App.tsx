@@ -1,18 +1,33 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Suspense } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import { Loading } from "@repo/ui";
 
 import { AuthProvider } from "./contexts";
-import { ProtectedRoute, GuestRoute } from "./components";
+import {
+  ProtectedRoute,
+  GuestRoute,
+  RouteErrorBoundary,
+} from "./components";
 import {
   LoginPage,
   DashboardPage,
   Verify2FAPage,
   ForgotPasswordPage,
+  SettingsPage,
 } from "./pages";
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <RouteErrorBoundary resetKey={location.pathname}>
+      <Suspense fallback={<Loading />}>
         <Routes>
           <Route
             path="/login"
@@ -46,9 +61,27 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+      </Suspense>
+    </RouteErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );

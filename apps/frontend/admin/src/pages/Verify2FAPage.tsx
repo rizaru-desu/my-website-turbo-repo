@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader, Separator } from "@repo/ui";
 import { PixelCrosshair, PixelFloppy, PixelSprite } from "../components/icons";
 import { Verify2faForm } from "../components/forms";
@@ -9,8 +9,7 @@ export default function Verify2FAPage() {
   const twoFactorToken = location.state?.twoFactorToken || "";
 
   if (!twoFactorToken) {
-    navigate("/login");
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   return (
