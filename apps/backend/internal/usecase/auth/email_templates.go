@@ -76,6 +76,11 @@ func renderAuthEmailTemplate(data authEmailTemplateData) string {
 	if name == "" {
 		name = "Admin"
 	}
+	actionURL := strings.TrimSpace(data.ButtonURL)
+	if actionURL == "" {
+		actionURL = "#"
+	}
+	escapedActionURL := html.EscapeString(actionURL)
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
@@ -134,7 +139,13 @@ func renderAuthEmailTemplate(data authEmailTemplateData) string {
           </tr>
           <tr>
             <td align="center" style="padding:22px 26px 20px;">
-              <a href="%s" style="display:block;padding:16px 18px;background:%s;color:%s;border:3px solid #44475a;box-shadow:5px 5px 0 #12131c;text-decoration:none;font-size:13px;line-height:1.3;font-weight:800;letter-spacing:0;">%s</a>
+              <a href="%s" target="_blank" role="button" style="display:block;width:100%%;max-width:300px;margin:0 auto;padding:16px 18px;background:%s;color:%s;border:3px solid #44475a;box-shadow:5px 5px 0 #12131c;text-align:center;text-decoration:none;font-size:15px;line-height:1.3;font-weight:800;letter-spacing:0;">%s</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 26px 20px;">
+              <p style="margin:0 0 8px;color:#777a95;font-size:12px;line-height:1.6;">If the button does not open, copy and paste this link:</p>
+              <p style="margin:0;color:#8be9fd;font-size:12px;line-height:1.6;word-break:break-all;"><a href="%s" target="_blank" style="color:#8be9fd;text-decoration:underline;">%s</a></p>
             </td>
           </tr>
           <tr>
@@ -167,10 +178,12 @@ func renderAuthEmailTemplate(data authEmailTemplateData) string {
 		html.EscapeString(data.Title),
 		html.EscapeString(name),
 		html.EscapeString(data.Body),
-		html.EscapeString(data.ButtonURL),
+		escapedActionURL,
 		data.ButtonColor,
 		data.ButtonText,
 		html.EscapeString(data.ButtonLabel),
+		escapedActionURL,
+		escapedActionURL,
 		html.EscapeString(data.ExpiryText),
 		html.EscapeString(data.FooterNote),
 	)

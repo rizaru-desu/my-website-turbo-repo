@@ -19,6 +19,7 @@ import {
   DashboardPage,
   Verify2FAPage,
   ForgotPasswordPage,
+  ResetPasswordPage,
   SettingsPage,
 } from "./pages";
 
@@ -50,6 +51,14 @@ function AppRoutes() {
             element={
               <GuestRoute>
                 <ForgotPasswordPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <GuestRoute>
+                <ResetPasswordPage />
               </GuestRoute>
             }
           />

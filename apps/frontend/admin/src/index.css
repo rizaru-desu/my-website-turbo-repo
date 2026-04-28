@@ -406,6 +406,26 @@ input {
     box-shadow: inset 0 0 0 2px rgba(80, 250, 123, 0.45);
   }
 
+  .reset-copy {
+    @apply text-cyan bg-cyan/8;
+    box-shadow: inset 0 0 0 2px rgba(139, 233, 253, 0.45);
+  }
+
+  .password-rules {
+    @apply grid gap-2 mt-[-2px] mb-[18px] p-0 list-none text-muted leading-[1.6] tracking-[0];
+    font-family: var(--font-pixel);
+    font-size: 0.48rem;
+  }
+
+  .password-rules li {
+    @apply relative pl-4;
+  }
+
+  .password-rules li::before {
+    @apply content-[''] absolute left-0 top-[0.45rem] w-2 h-2 bg-cyan;
+    box-shadow: 2px 2px 0 #12131c;
+  }
+
   .otp-group {
     @apply flex gap-[10px] justify-center;
   }
