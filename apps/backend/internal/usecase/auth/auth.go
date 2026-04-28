@@ -22,12 +22,14 @@ var (
 	ErrTwoFactorExists     = errors.New("two factor already enabled")
 	ErrInvalidCallbackURL  = errors.New("invalid callback url")
 	ErrEmailDeliveryFailed = errors.New("email delivery failed")
+	ErrWeakPassword        = errors.New("password does not meet requirements")
 )
 
 type CredentialRepository interface {
 	FindByEmail(ctx context.Context, email string) (CredentialAccount, error)
 	FindByUserID(ctx context.Context, userID string) (CredentialAccount, error)
 	MarkEmailVerified(ctx context.Context, userID string) error
+	UpdatePassword(ctx context.Context, userID string, passwordHash string) error
 }
 
 type SessionRepository interface {
@@ -43,6 +45,7 @@ type TokenManager interface {
 
 type PasswordVerifier interface {
 	Verify(hash string, password string) bool
+	Hash(password string) (string, error)
 }
 
 type VerificationRepository interface {
@@ -137,6 +140,18 @@ type AuthenticatedUser struct {
 
 type ForgotPasswordCommand struct {
 	Email string
+}
+
+type ResetPasswordCommand struct {
+	Email       string
+	Token       string
+	NewPassword string
+}
+
+type ChangePasswordCommand struct {
+	UserID          string
+	CurrentPassword string
+	NewPassword     string
 }
 
 type SendVerificationEmailCommand struct {
@@ -389,6 +404,75 @@ func (s *Service) ForgotPassword(ctx context.Context, command ForgotPasswordComm
 	return nil
 }
 
+func (s *Service) ResetPassword(ctx context.Context, command ResetPasswordCommand) error {
+	email := strings.TrimSpace(command.Email)
+	token := strings.TrimSpace(command.Token)
+	if email == "" || token == "" || s.verifications == nil {
+		return ErrInvalidToken
+	}
+	if err := validateNewPassword(command.NewPassword); err != nil {
+		return err
+	}
+
+	identifier := "password_reset:" + email
+	storedToken, err := s.verifications.FindByIdentifier(ctx, identifier)
+	if err != nil || !sameToken(storedToken, token) {
+		return ErrInvalidToken
+	}
+
+	account, err := s.credentials.FindByEmail(ctx, email)
+	if err != nil || !account.Active {
+		return ErrInvalidToken
+	}
+
+	passwordHash, err := s.passwords.Hash(command.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	if err := s.credentials.UpdatePassword(ctx, account.UserID, passwordHash); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	if err := s.verifications.DeleteByIdentifier(ctx, identifier); err != nil {
+		log.Printf("password reset: failed to invalidate reset token for %s: %v", account.Email, err)
+		return fmt.Errorf("invalidate reset token: %w", err)
+	}
+
+	log.Printf("password reset: password updated for user %s", account.UserID)
+	return nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, command ChangePasswordCommand) error {
+	if strings.TrimSpace(command.UserID) == "" {
+		return ErrInvalidToken
+	}
+	if err := validateNewPassword(command.NewPassword); err != nil {
+		return err
+	}
+
+	cred, err := s.credentialsByUserID(ctx, command.UserID)
+	if err != nil || !cred.Active {
+		return ErrInvalidCredentials
+	}
+
+	if !s.passwords.Verify(cred.PasswordHash, command.CurrentPassword) {
+		return ErrInvalidCredentials
+	}
+
+	passwordHash, err := s.passwords.Hash(command.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	if err := s.credentials.UpdatePassword(ctx, command.UserID, passwordHash); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	log.Printf("password change: password updated for user %s", command.UserID)
+	return nil
+}
+
 func (s *Service) SendVerificationEmail(ctx context.Context, command SendVerificationEmailCommand) error {
 	if s.verifications == nil || s.mail == nil {
 		return fmt.Errorf("email verification is not configured")
@@ -510,22 +594,31 @@ func (s *Service) VerifyEmail(ctx context.Context, command VerifyEmailCommand) (
 	}, nil
 }
 
-func (s *Service) SetupTOTP(ctx context.Context, userID string) (SetupTOTPResult, error) {
+func (s *Service) SetupTOTP(ctx context.Context, command SetupTOTPCommand) (SetupTOTPResult, error) {
 	if s.twoFactors == nil || s.totp == nil {
 		return SetupTOTPResult{}, ErrTwoFactorNotSetup
 	}
 
-	existing, err := s.twoFactors.FindByUserID(ctx, userID)
-	if err == nil && existing.ID != "" {
-		return SetupTOTPResult{}, ErrTwoFactorExists
-	}
-
-	cred, err := s.credentialsByUserID(ctx, userID)
+	cred, err := s.credentialsByUserID(ctx, command.UserID)
 	if err != nil {
 		return SetupTOTPResult{}, fmt.Errorf("find user: %w", err)
 	}
+	if !s.passwords.Verify(cred.PasswordHash, command.Password) {
+		return SetupTOTPResult{}, ErrInvalidCredentials
+	}
 
-	secret, qrURL, err := s.totp.GenerateSecret(cred.Email)
+	existing, err := s.twoFactors.FindByUserID(ctx, command.UserID)
+	if err == nil && existing.ID != "" {
+		if cred.TwoFactorEnabled {
+			return SetupTOTPResult{}, ErrTwoFactorExists
+		}
+
+		if err := s.twoFactors.Delete(ctx, command.UserID); err != nil {
+			return SetupTOTPResult{}, fmt.Errorf("replace pending totp setup: %w", err)
+		}
+	}
+
+	secret, qrURL, qrCode, err := s.totp.GenerateSecret(cred.Email)
 	if err != nil {
 		return SetupTOTPResult{}, fmt.Errorf("generate totp secret: %w", err)
 	}
@@ -542,29 +635,30 @@ func (s *Service) SetupTOTP(ctx context.Context, userID string) (SetupTOTPResult
 
 	hashedCodes := hashBackupCodes(backupCodes)
 
-	if err := s.twoFactors.Create(ctx, s.ids.NewID(), userID, encrypted, hashedCodes); err != nil {
+	if err := s.twoFactors.Create(ctx, s.ids.NewID(), command.UserID, encrypted, hashedCodes); err != nil {
 		return SetupTOTPResult{}, fmt.Errorf("store totp: %w", err)
 	}
 
 	return SetupTOTPResult{
 		Secret:      secret,
 		QRURL:       qrURL,
+		QRCode:      qrCode,
 		BackupCodes: backupCodes,
 	}, nil
+}
+
+func (s *Service) GetTOTPStatus(ctx context.Context, userID string) (TOTPStatusResult, error) {
+	cred, err := s.credentialsByUserID(ctx, userID)
+	if err != nil {
+		return TOTPStatusResult{}, fmt.Errorf("find user: %w", err)
+	}
+
+	return TOTPStatusResult{Enabled: cred.TwoFactorEnabled}, nil
 }
 
 func (s *Service) EnableTOTP(ctx context.Context, command EnableTOTPCommand) error {
 	if s.twoFactors == nil || s.totp == nil {
 		return ErrTwoFactorNotSetup
-	}
-
-	cred, err := s.credentialsByUserID(ctx, command.UserID)
-	if err != nil {
-		return fmt.Errorf("find user: %w", err)
-	}
-
-	if !s.passwords.Verify(cred.PasswordHash, command.Password) {
-		return ErrInvalidCredentials
 	}
 
 	record, err := s.twoFactors.FindByUserID(ctx, command.UserID)
@@ -790,4 +884,12 @@ func sameToken(expected string, actual string) bool {
 	}
 
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1
+}
+
+func validateNewPassword(password string) error {
+	if len([]rune(password)) < 8 || strings.TrimSpace(password) == "" {
+		return ErrWeakPassword
+	}
+
+	return nil
 }

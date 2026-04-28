@@ -29,6 +29,50 @@ export interface VerifyTOTPRequest {
   code: string;
 }
 
+export interface SetupTOTPResponse {
+  secret: string;
+  qr_url: string;
+  qr_code: string;
+  backup_codes: string[];
+}
+
+export interface SetupTOTPRequest {
+  password: string;
+}
+
+export interface TwoFactorStatusResponse {
+  enabled: boolean;
+}
+
+export interface EnableTOTPRequest {
+  code: string;
+}
+
+export interface DisableTOTPRequest {
+  password: string;
+}
+
+export interface RegenerateBackupCodesRequest {
+  password: string;
+}
+
+export interface RegenerateBackupCodesResponse {
+  backup_codes: string[];
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  token: string;
+  password: string;
+  confirmPassword?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
 export interface MeResponse {
   user: {
     id: string;
@@ -48,9 +92,7 @@ export interface ErrorResponse {
 }
 
 export const authService = {
-  async login(
-    data: LoginRequest
-  ): Promise<LoginResponse | TwoFactorResponse> {
+  async login(data: LoginRequest): Promise<LoginResponse | TwoFactorResponse> {
     const response: AxiosResponse<LoginResponse | TwoFactorResponse> =
       await apiClient.post("/auth/login", data);
     return response.data;
@@ -59,14 +101,51 @@ export const authService = {
   async verifyTOTP(data: VerifyTOTPRequest): Promise<LoginResponse> {
     const response: AxiosResponse<LoginResponse> = await apiClient.post(
       "/auth/2fa/verify",
-      data
+      data,
     );
     return response.data;
   },
 
+  async getTwoFactorStatus(): Promise<TwoFactorStatusResponse> {
+    const response: AxiosResponse<TwoFactorStatusResponse> =
+      await apiClient.get("/auth/2fa/status");
+    return response.data;
+  },
+
+  async setupTOTP(data: SetupTOTPRequest): Promise<SetupTOTPResponse> {
+    const response: AxiosResponse<SetupTOTPResponse> = await apiClient.post(
+      "/auth/2fa/setup",
+      data,
+    );
+    return response.data;
+  },
+
+  async enableTOTP(data: EnableTOTPRequest): Promise<{ status: string }> {
+    const response: AxiosResponse<{ status: string }> = await apiClient.post(
+      "/auth/2fa/enable",
+      data,
+    );
+    return response.data;
+  },
+
+  async disableTOTP(data: DisableTOTPRequest): Promise<{ status: string }> {
+    const response: AxiosResponse<{ status: string }> = await apiClient.post(
+      "/auth/2fa/disable",
+      data,
+    );
+    return response.data;
+  },
+
+  async regenerateBackupCodes(
+    data: RegenerateBackupCodesRequest,
+  ): Promise<RegenerateBackupCodesResponse> {
+    const response: AxiosResponse<RegenerateBackupCodesResponse> =
+      await apiClient.post("/auth/2fa/backup-codes/regenerate", data);
+    return response.data;
+  },
+
   async me(): Promise<MeResponse> {
-    const response: AxiosResponse<MeResponse> =
-      await apiClient.get("/auth/me");
+    const response: AxiosResponse<MeResponse> = await apiClient.get("/auth/me");
     return response.data;
   },
 
@@ -74,8 +153,24 @@ export const authService = {
     await apiClient.post("/auth/logout");
   },
 
-  async forgotPassword(email: string): Promise<{ status: string; message: string }> {
+  async forgotPassword(
+    email: string,
+  ): Promise<{ status: string; message: string }> {
     const response = await apiClient.post("/auth/forgot-password", { email });
+    return response.data;
+  },
+
+  async resetPassword(
+    data: ResetPasswordRequest,
+  ): Promise<{ status: string; message: string }> {
+    const response = await apiClient.post("/auth/reset-password", data);
+    return response.data;
+  },
+
+  async changePassword(
+    data: ChangePasswordRequest,
+  ): Promise<{ status: string; message: string }> {
+    const response = await apiClient.post("/auth/change-password", data);
     return response.data;
   },
 };

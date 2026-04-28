@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"image/png"
 	"io"
 	"strings"
 	"time"
@@ -28,7 +30,7 @@ func NewTOTPManager(issuer string, encryptionSecret string) *TOTPManager {
 	}
 }
 
-func (m *TOTPManager) GenerateSecret(email string) (secret string, qrURL string, err error) {
+func (m *TOTPManager) GenerateSecret(email string) (secret string, qrURL string, qrCode string, err error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      m.issuer,
 		AccountName: email,
@@ -37,10 +39,21 @@ func (m *TOTPManager) GenerateSecret(email string) (secret string, qrURL string,
 		Algorithm:   otp.AlgorithmSHA1,
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("totp generate: %w", err)
+		return "", "", "", fmt.Errorf("totp generate: %w", err)
 	}
 
-	return key.Secret(), key.URL(), nil
+	image, err := key.Image(220, 220)
+	if err != nil {
+		return "", "", "", fmt.Errorf("totp qr image: %w", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := png.Encode(&buffer, image); err != nil {
+		return "", "", "", fmt.Errorf("totp qr encode: %w", err)
+	}
+
+	qrCode = "data:image/png;base64," + base64.StdEncoding.EncodeToString(buffer.Bytes())
+	return key.Secret(), key.URL(), qrCode, nil
 }
 
 func (m *TOTPManager) ValidateCode(secret string, code string) bool {
@@ -51,8 +64,8 @@ func (m *TOTPManager) ValidateCode(secret string, code string) bool {
 
 	valid, err := totp.ValidateCustom(code, secret, time.Now().UTC(), totp.ValidateOpts{
 		Period:    30,
-		Skew:     1,
-		Digits:   otp.DigitsSix,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
 		Algorithm: otp.AlgorithmSHA1,
 	})
 

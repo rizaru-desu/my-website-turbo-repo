@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Input, Label } from "@repo/ui";
+import { authService, AxiosError } from "@repo/api";
 
 import { IconLock, IconMail } from "../icons";
 import { getFieldError } from "../../utils";
@@ -17,6 +18,7 @@ export default function ResetPasswordForm({
   onBackToLogin,
 }: ResetPasswordFormProps) {
   const [isComplete, setIsComplete] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const hasValidLink = Boolean(email && token);
 
   const resetForm = useForm({
@@ -25,8 +27,24 @@ export default function ResetPasswordForm({
       password: "",
       confirmPassword: "",
     },
-    onSubmit: async () => {
-      setIsComplete(true);
+    onSubmit: async ({ value }) => {
+      setApiError(null);
+      try {
+        await authService.resetPassword({
+          email: value.email,
+          token,
+          password: value.password,
+          confirmPassword: value.confirmPassword,
+        });
+
+        setIsComplete(true);
+      } catch (error) {
+        if (error instanceof AxiosError) {
+          setApiError(error.response?.data?.error || "RESET REQUEST FAILED");
+        } else {
+          setApiError("NETWORK ERROR");
+        }
+      }
     },
   });
 
@@ -89,6 +107,8 @@ export default function ResetPasswordForm({
         CREATE A NEW ADMIN PASSWORD FOR THIS RESET LINK.
       </p>
 
+      {apiError ? <p className="field-error">! {apiError}</p> : null}
+
       <resetForm.Field name="email">
         {(field) => (
           <div className="form-row">
@@ -139,8 +159,12 @@ export default function ResetPasswordForm({
                 name={field.name}
                 type="password"
                 value={field.state.value}
+                className="login-credential-input"
                 placeholder="****************"
                 autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 data-testid="reset-password"
                 autoFocus
                 onBlur={field.handleBlur}
@@ -182,8 +206,12 @@ export default function ResetPasswordForm({
                 name={field.name}
                 type="password"
                 value={field.state.value}
+                className="login-credential-input"
                 placeholder="****************"
                 autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 data-testid="reset-confirm-password"
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}

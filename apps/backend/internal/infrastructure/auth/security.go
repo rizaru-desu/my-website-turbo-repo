@@ -32,6 +32,10 @@ func NewPasswordVerifier(secret string) PasswordVerifier {
 	return PasswordVerifier{secret: secret}
 }
 
+func (v PasswordVerifier) Hash(password string) (string, error) {
+	return Argon2PasswordVerifier{}.Hash(password)
+}
+
 func (v PasswordVerifier) Verify(hash string, password string) bool {
 	if (Argon2PasswordVerifier{}).Verify(hash, password) {
 		return true
@@ -52,6 +56,30 @@ func (Argon2PasswordVerifier) Verify(hash string, password string) bool {
 
 	actual := argon2.IDKey([]byte(password), salt, params.iterations, params.memory, params.parallelism, params.keyLength)
 	return subtle.ConstantTimeCompare(actual, expected) == 1
+}
+
+func (Argon2PasswordVerifier) Hash(password string) (string, error) {
+	params := argon2Params{
+		memory:      64 * 1024,
+		iterations:  3,
+		parallelism: 2,
+		keyLength:   32,
+	}
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", fmt.Errorf("generate password salt: %w", err)
+	}
+
+	key := argon2.IDKey([]byte(password), salt, params.iterations, params.memory, params.parallelism, params.keyLength)
+	return fmt.Sprintf(
+		"$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version,
+		params.memory,
+		params.iterations,
+		params.parallelism,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(key),
+	), nil
 }
 
 func decodeArgon2IDHash(encoded string) (argon2Params, []byte, []byte, error) {

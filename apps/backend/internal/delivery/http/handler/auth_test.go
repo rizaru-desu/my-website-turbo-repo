@@ -16,6 +16,12 @@ type stubAuthService struct {
 	logoutToken              *string
 	verifyToken              *string
 	forgotPasswordErr        error
+	resetPasswordCommand     *authusecase.ResetPasswordCommand
+	resetPasswordErr         error
+	changePasswordCommand    *authusecase.ChangePasswordCommand
+	changePasswordErr        error
+	setupTOTPCommand         *authusecase.SetupTOTPCommand
+	tokenClaims              authusecase.TokenClaims
 	verificationEmail        *authusecase.SendVerificationEmailCommand
 	verifyEmailCommand       *authusecase.VerifyEmailCommand
 	verifyEmailResult        authusecase.VerifyEmailResult
@@ -37,6 +43,22 @@ func (s stubAuthService) Logout(_ context.Context, token string) error {
 
 func (s stubAuthService) ForgotPassword(context.Context, authusecase.ForgotPasswordCommand) error {
 	return s.forgotPasswordErr
+}
+
+func (s stubAuthService) ResetPassword(_ context.Context, command authusecase.ResetPasswordCommand) error {
+	if s.resetPasswordCommand != nil {
+		*s.resetPasswordCommand = command
+	}
+
+	return s.resetPasswordErr
+}
+
+func (s stubAuthService) ChangePassword(_ context.Context, command authusecase.ChangePasswordCommand) error {
+	if s.changePasswordCommand != nil {
+		*s.changePasswordCommand = command
+	}
+
+	return s.changePasswordErr
 }
 
 func (s stubAuthService) SendVerificationEmail(_ context.Context, command authusecase.SendVerificationEmailCommand) error {
@@ -63,11 +85,23 @@ func (s stubAuthService) VerifyToken(_ context.Context, token string) (authuseca
 		return authusecase.TokenClaims{}, authusecase.ErrInvalidToken
 	}
 
-	return authusecase.TokenClaims{}, nil
+	if s.tokenClaims.UserID != "" {
+		return s.tokenClaims, nil
+	}
+
+	return authusecase.TokenClaims{UserID: "user-1"}, nil
 }
 
-func (s stubAuthService) SetupTOTP(context.Context, string) (authusecase.SetupTOTPResult, error) {
+func (s stubAuthService) SetupTOTP(_ context.Context, command authusecase.SetupTOTPCommand) (authusecase.SetupTOTPResult, error) {
+	if s.setupTOTPCommand != nil {
+		*s.setupTOTPCommand = command
+	}
+
 	return authusecase.SetupTOTPResult{}, nil
+}
+
+func (s stubAuthService) GetTOTPStatus(context.Context, string) (authusecase.TOTPStatusResult, error) {
+	return authusecase.TOTPStatusResult{}, nil
 }
 
 func (s stubAuthService) EnableTOTP(context.Context, authusecase.EnableTOTPCommand) error {
@@ -243,6 +277,114 @@ func TestForgotPasswordReportsDeliveryFailure(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "failed to send reset email") {
 		t.Fatalf("expected delivery failure message, got %s", rec.Body.String())
+	}
+}
+
+func TestResetPasswordPassesPayloadToService(t *testing.T) {
+	command := authusecase.ResetPasswordCommand{}
+	handler := NewAuthHandler(stubAuthService{resetPasswordCommand: &command}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/reset-password", strings.NewReader(`{"email":" admin@example.com ","token":"reset-token","password":"new-secret","confirmPassword":"new-secret"}`))
+	rec := httptest.NewRecorder()
+
+	handler.ResetPassword(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if command.Email != "admin@example.com" || command.Token != "reset-token" || command.NewPassword != "new-secret" {
+		t.Fatalf("unexpected reset command: %#v", command)
+	}
+}
+
+func TestResetPasswordReportsInvalidToken(t *testing.T) {
+	handler := NewAuthHandler(stubAuthService{
+		resetPasswordErr: authusecase.ErrInvalidToken,
+	}, AuthCookieConfig{})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/reset-password", strings.NewReader(`{"email":"admin@example.com","token":"bad-token","password":"new-secret"}`))
+	rec := httptest.NewRecorder()
+
+	handler.ResetPassword(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "invalid or expired reset token") {
+		t.Fatalf("expected invalid token message, got %s", rec.Body.String())
+	}
+}
+
+func TestChangePasswordRequiresSessionCookie(t *testing.T) {
+	handler := NewAuthHandler(stubAuthService{}, AuthCookieConfig{Name: "portfolio_auth"})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/change-password", strings.NewReader(`{"current_password":"secret","new_password":"new-secret"}`))
+	rec := httptest.NewRecorder()
+
+	handler.ChangePassword(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnauthorized, rec.Code, rec.Body.String())
+	}
+}
+
+func TestChangePasswordUsesSessionUserAndPasswordPayloadOnly(t *testing.T) {
+	command := authusecase.ChangePasswordCommand{}
+	handler := NewAuthHandler(stubAuthService{
+		changePasswordCommand: &command,
+		tokenClaims: authusecase.TokenClaims{
+			UserID: "session-user-42",
+			Email:  "signed-in@example.com",
+		},
+	}, AuthCookieConfig{Name: "portfolio_auth"})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/change-password", strings.NewReader(`{"currentPassword":"secret","newPassword":"new-secret","confirmPassword":"new-secret"}`))
+	req.AddCookie(&http.Cookie{Name: "portfolio_auth", Value: "jwt-token"})
+	rec := httptest.NewRecorder()
+
+	handler.ChangePassword(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if command.UserID != "session-user-42" || command.CurrentPassword != "secret" || command.NewPassword != "new-secret" {
+		t.Fatalf("unexpected change password command: %#v", command)
+	}
+}
+
+func TestSetupTOTPRequiresSessionCookie(t *testing.T) {
+	handler := NewAuthHandler(stubAuthService{}, AuthCookieConfig{Name: "portfolio_auth"})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/2fa/setup", strings.NewReader(`{"password":"current-password"}`))
+	rec := httptest.NewRecorder()
+
+	handler.SetupTOTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusUnauthorized, rec.Code, rec.Body.String())
+	}
+}
+
+func TestSetupTOTPPassesSessionUserAndPasswordPayload(t *testing.T) {
+	command := authusecase.SetupTOTPCommand{}
+	handler := NewAuthHandler(stubAuthService{
+		setupTOTPCommand: &command,
+		tokenClaims: authusecase.TokenClaims{
+			UserID: "session-user-42",
+		},
+	}, AuthCookieConfig{Name: "portfolio_auth"})
+
+	req := httptest.NewRequest(http.MethodPost, authPath+"/2fa/setup", strings.NewReader(`{"password":"current-password"}`))
+	req.AddCookie(&http.Cookie{Name: "portfolio_auth", Value: "jwt-token"})
+	rec := httptest.NewRecorder()
+
+	handler.SetupTOTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if command.UserID != "session-user-42" || command.Password != "current-password" {
+		t.Fatalf("unexpected setup totp command: %#v", command)
 	}
 }
 

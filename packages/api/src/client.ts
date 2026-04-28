@@ -7,7 +7,16 @@ function resolveBaseURL(): string {
   const viteEnv = (
     import.meta as unknown as { env?: Record<string, string | undefined> }
   ).env;
-  return viteEnv?.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  if (viteEnv?.VITE_API_BASE_URL) {
+    return viteEnv.VITE_API_BASE_URL;
+  }
+
+  const location = globalThis.location;
+  if (location?.hostname === "localhost" || location?.hostname === "127.0.0.1") {
+    return `${location.protocol}//${location.hostname}:3333/api/v1`;
+  }
+
+  return DEFAULT_API_BASE_URL;
 }
 
 const apiClient: AxiosInstance = axios.create({

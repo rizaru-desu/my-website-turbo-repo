@@ -76,6 +76,7 @@ func newHandler(databaseClients ...*ent.Client) http.Handler {
 		Routes: map[string]struct{}{
 			"POST /api/v1/auth/email-verification": {},
 			"POST /api/v1/auth/forgot-password":    {},
+			"POST /api/v1/auth/reset-password":     {},
 		},
 	}
 

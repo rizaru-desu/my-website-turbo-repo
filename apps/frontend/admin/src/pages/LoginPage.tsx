@@ -43,7 +43,7 @@ export default function LoginPage() {
       try {
         setLoginError("");
         const response = await authService.login({
-          email: value.username,
+          email: value.username.trim(),
           password: value.password,
           remember_me: value.remember,
         });
@@ -126,8 +126,14 @@ export default function LoginPage() {
                   <Input
                     id={field.name}
                     name={field.name}
+                    type="email"
                     value={field.state.value}
-                    autoComplete="username"
+                    className="login-credential-input"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     data-testid="login-username"
                     autoFocus
                     onBlur={field.handleBlur}
@@ -155,8 +161,12 @@ export default function LoginPage() {
                     name={field.name}
                     type="password"
                     value={field.state.value}
+                    className="login-credential-input"
                     placeholder="****************"
                     autoComplete="current-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     data-testid="login-password"
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}

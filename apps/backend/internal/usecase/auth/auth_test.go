@@ -4,30 +4,56 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 type fakeCredentialRepository struct {
+	mu                 sync.Mutex
 	account            CredentialAccount
 	err                error
 	verifiedUserID     string
 	markVerifiedErr    error
+	updatedUserID      string
+	updatedPassword    string
+	updatePasswordErr  error
 	findByEmailQueries []string
 }
 
 func (r *fakeCredentialRepository) FindByEmail(_ context.Context, email string) (CredentialAccount, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.findByEmailQueries = append(r.findByEmailQueries, email)
 	return r.account, r.err
 }
 
 func (r *fakeCredentialRepository) FindByUserID(context.Context, string) (CredentialAccount, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	return r.account, r.err
 }
 
 func (r *fakeCredentialRepository) MarkEmailVerified(_ context.Context, userID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.verifiedUserID = userID
 	return r.markVerifiedErr
+}
+
+func (r *fakeCredentialRepository) UpdatePassword(_ context.Context, userID string, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.updatedUserID = userID
+	r.updatedPassword = passwordHash
+	if r.account.UserID == userID {
+		r.account.PasswordHash = passwordHash
+	}
+	return r.updatePasswordErr
 }
 
 type fakeSessionRepository struct {
@@ -77,6 +103,10 @@ func (fakePasswordVerifier) Verify(hash string, password string) bool {
 	return hash == "hash:"+password
 }
 
+func (fakePasswordVerifier) Hash(password string) (string, error) {
+	return "hash:" + password, nil
+}
+
 type fakeIDGenerator struct{}
 
 func (fakeIDGenerator) NewID() string {
@@ -92,22 +122,41 @@ func (c fixedClock) Now() time.Time {
 }
 
 type fakeVerificationRepository struct {
+	mu                sync.Mutex
 	createdIdentifier string
 	createdValue      string
 	deletedIdentifier string
 	value             string
 	err               error
+	deleteErr         error
+	values            map[string]string
 }
 
 func (r *fakeVerificationRepository) Create(_ context.Context, _ string, identifier string, value string, _ time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.createdIdentifier = identifier
 	r.createdValue = value
+	if r.values == nil {
+		r.values = map[string]string{}
+	}
+	r.values[identifier] = value
 	return r.err
 }
 
 func (r *fakeVerificationRepository) FindByIdentifier(_ context.Context, identifier string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.err != nil {
 		return "", r.err
+	}
+	if r.values != nil {
+		value, ok := r.values[identifier]
+		if ok {
+			return value, nil
+		}
 	}
 	if r.createdIdentifier == identifier {
 		return r.createdValue, nil
@@ -119,8 +168,16 @@ func (r *fakeVerificationRepository) FindByIdentifier(_ context.Context, identif
 }
 
 func (r *fakeVerificationRepository) FindIdentifierByValue(_ context.Context, value string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.err != nil {
 		return "", r.err
+	}
+	for identifier, storedValue := range r.values {
+		if storedValue == value {
+			return identifier, nil
+		}
 	}
 	if r.createdValue == value {
 		return r.createdIdentifier, nil
@@ -129,8 +186,49 @@ func (r *fakeVerificationRepository) FindIdentifierByValue(_ context.Context, va
 }
 
 func (r *fakeVerificationRepository) DeleteByIdentifier(_ context.Context, identifier string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.deleteErr != nil {
+		return r.deleteErr
+	}
 	r.deletedIdentifier = identifier
-	return nil
+	if r.values != nil {
+		if _, ok := r.values[identifier]; ok {
+			delete(r.values, identifier)
+			if r.createdIdentifier == identifier {
+				r.createdIdentifier = ""
+				r.createdValue = ""
+			}
+			return nil
+		}
+	}
+	if r.createdIdentifier == identifier && r.createdValue != "" {
+		r.createdIdentifier = ""
+		r.createdValue = ""
+		return nil
+	}
+
+	return errors.New("verification not found")
+}
+
+func (r *fakeVerificationRepository) seed(identifier string, value string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.createdIdentifier = identifier
+	r.createdValue = value
+	if r.values == nil {
+		r.values = map[string]string{}
+	}
+	r.values[identifier] = value
+}
+
+func (r *fakeVerificationRepository) deleted() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.deletedIdentifier
 }
 
 type fakeMailSender struct {
@@ -326,6 +424,210 @@ func TestForgotPasswordReturnsDeliveryFailure(t *testing.T) {
 	err := service.ForgotPassword(context.Background(), ForgotPasswordCommand{Email: "admin@example.com"})
 	if !errors.Is(err, ErrEmailDeliveryFailed) {
 		t.Fatalf("expected email delivery failure, got %v", err)
+	}
+}
+
+func TestResetPasswordUpdatesPasswordAndDeletesToken(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{
+		account: CredentialAccount{
+			UserID:       "user-1",
+			Name:         "Admin",
+			Email:        "admin@example.com",
+			PasswordHash: "hash:secret",
+			Active:       true,
+		},
+	}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+		FrontendURL:    "http://localhost:3111",
+		BackendURL:     "http://localhost:3333",
+	})
+	verifications := &fakeVerificationRepository{
+		createdIdentifier: "password_reset:admin@example.com",
+		createdValue:      "reset-token",
+	}
+	service.SetVerifications(verifications)
+
+	err := service.ResetPassword(context.Background(), ResetPasswordCommand{
+		Email:       "admin@example.com",
+		Token:       "reset-token",
+		NewPassword: "new-secret",
+	})
+	if err != nil {
+		t.Fatalf("expected password reset to succeed, got %v", err)
+	}
+	if credentials.updatedUserID != "user-1" || credentials.updatedPassword != "hash:new-secret" {
+		t.Fatalf("expected password update, got user=%q hash=%q", credentials.updatedUserID, credentials.updatedPassword)
+	}
+	if verifications.deletedIdentifier != "password_reset:admin@example.com" {
+		t.Fatalf("expected reset token to be deleted, got %q", verifications.deletedIdentifier)
+	}
+}
+
+func TestResetPasswordRejectsReusedToken(t *testing.T) {
+	service := testService(&fakeSessionRepository{}, time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC))
+	verifications := &fakeVerificationRepository{}
+	verifications.seed("password_reset:admin@example.com", "reset-token")
+	service.SetVerifications(verifications)
+
+	command := ResetPasswordCommand{
+		Email:       "admin@example.com",
+		Token:       "reset-token",
+		NewPassword: "new-secret",
+	}
+	if err := service.ResetPassword(context.Background(), command); err != nil {
+		t.Fatalf("expected first password reset to succeed, got %v", err)
+	}
+
+	err := service.ResetPassword(context.Background(), command)
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("expected reused token to be invalid, got %v", err)
+	}
+}
+
+func TestResetPasswordRejectsInvalidToken(t *testing.T) {
+	service := testService(&fakeSessionRepository{}, time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC))
+	service.SetVerifications(&fakeVerificationRepository{
+		createdIdentifier: "password_reset:admin@example.com",
+		createdValue:      "reset-token",
+	})
+
+	err := service.ResetPassword(context.Background(), ResetPasswordCommand{
+		Email:       "admin@example.com",
+		Token:       "wrong-token",
+		NewPassword: "new-secret",
+	})
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("expected invalid token, got %v", err)
+	}
+}
+
+func TestResetPasswordReturnsErrorWhenTokenInvalidationFails(t *testing.T) {
+	service := testService(&fakeSessionRepository{}, time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC))
+	verifications := &fakeVerificationRepository{deleteErr: errors.New("delete unavailable")}
+	verifications.seed("password_reset:admin@example.com", "reset-token")
+	service.SetVerifications(verifications)
+
+	err := service.ResetPassword(context.Background(), ResetPasswordCommand{
+		Email:       "admin@example.com",
+		Token:       "reset-token",
+		NewPassword: "new-secret",
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalidate reset token") {
+		t.Fatalf("expected reset to fail when invalidation fails, got %v", err)
+	}
+}
+
+func TestResetPasswordConcurrentUseAllowsAtMostOneSuccess(t *testing.T) {
+	service := testService(&fakeSessionRepository{}, time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC))
+	verifications := &fakeVerificationRepository{}
+	verifications.seed("password_reset:admin@example.com", "reset-token")
+	service.SetVerifications(verifications)
+
+	command := ResetPasswordCommand{
+		Email:       "admin@example.com",
+		Token:       "reset-token",
+		NewPassword: "new-secret",
+	}
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			results <- service.ResetPassword(context.Background(), command)
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(results)
+
+	successes := 0
+	for err := range results {
+		if err == nil {
+			successes++
+		}
+	}
+	if successes > 1 {
+		t.Fatalf("expected at most one concurrent reset to succeed, got %d", successes)
+	}
+	if verifications.deleted() != "password_reset:admin@example.com" {
+		t.Fatalf("expected reset token to be deleted, got %q", verifications.deleted())
+	}
+}
+
+func TestChangePasswordRequiresCurrentPassword(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{
+		account: CredentialAccount{
+			UserID:       "user-1",
+			Name:         "Admin",
+			Email:        "admin@example.com",
+			PasswordHash: "hash:secret",
+			Active:       true,
+		},
+	}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+	})
+
+	err := service.ChangePassword(context.Background(), ChangePasswordCommand{
+		UserID:          "user-1",
+		CurrentPassword: "wrong",
+		NewPassword:     "new-secret",
+	})
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected invalid credentials, got %v", err)
+	}
+	if credentials.updatedPassword != "" {
+		t.Fatalf("expected password not to be updated, got %q", credentials.updatedPassword)
+	}
+}
+
+func TestChangePasswordUpdatesPassword(t *testing.T) {
+	now := time.Date(2026, 4, 21, 8, 0, 0, 0, time.UTC)
+	credentials := &fakeCredentialRepository{
+		account: CredentialAccount{
+			UserID:       "user-1",
+			Name:         "Admin",
+			Email:        "admin@example.com",
+			PasswordHash: "hash:secret",
+			Active:       true,
+		},
+	}
+	service := NewService(credentials, &fakeSessionRepository{}, fakeTokenManager{}, fakePasswordVerifier{}, fakeIDGenerator{}, fixedClock{now: now}, Options{
+		AccessTokenTTL: time.Hour,
+		RememberMeTTL:  7 * 24 * time.Hour,
+	})
+
+	err := service.ChangePassword(context.Background(), ChangePasswordCommand{
+		UserID:          "user-1",
+		CurrentPassword: "secret",
+		NewPassword:     "new-secret",
+	})
+	if err != nil {
+		t.Fatalf("expected password change to succeed, got %v", err)
+	}
+	if credentials.updatedUserID != "user-1" || credentials.updatedPassword != "hash:new-secret" {
+		t.Fatalf("expected password update, got user=%q hash=%q", credentials.updatedUserID, credentials.updatedPassword)
+	}
+	if _, err := service.Login(context.Background(), LoginCommand{
+		Email:    "admin@example.com",
+		Password: "secret",
+	}); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected old password to be rejected after change, got %v", err)
+	}
+	if _, err := service.Login(context.Background(), LoginCommand{
+		Email:    "admin@example.com",
+		Password: "new-secret",
+	}); err != nil {
+		t.Fatalf("expected new password to login after change, got %v", err)
 	}
 }
 

@@ -3,7 +3,7 @@ package auth
 import "context"
 
 type TOTPManager interface {
-	GenerateSecret(email string) (secret string, qrURL string, err error)
+	GenerateSecret(email string) (secret string, qrURL string, qrCode string, err error)
 	ValidateCode(secret string, code string) bool
 	EncryptSecret(plaintext string) (string, error)
 	DecryptSecret(ciphertext string) (string, error)
@@ -27,13 +27,22 @@ type TwoFactorRecord struct {
 type SetupTOTPResult struct {
 	Secret      string   `json:"secret"`
 	QRURL       string   `json:"qr_url"`
+	QRCode      string   `json:"qr_code"`
 	BackupCodes []string `json:"backup_codes"`
 }
 
-type EnableTOTPCommand struct {
+type TOTPStatusResult struct {
+	Enabled bool `json:"enabled"`
+}
+
+type SetupTOTPCommand struct {
 	UserID   string
-	Code     string
 	Password string
+}
+
+type EnableTOTPCommand struct {
+	UserID string
+	Code   string
 }
 
 type DisableTOTPCommand struct {

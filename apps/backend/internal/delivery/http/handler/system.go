@@ -94,6 +94,24 @@ func (h *SystemHandler) APIIndex(w http.ResponseWriter, r *http.Request) {
 				Description: "Return the authenticated user and session claims.",
 				Protected:   true,
 			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/api/v1/auth/forgot-password",
+				Description: "Request a password reset email for an admin account.",
+				Protected:   false,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/api/v1/auth/reset-password",
+				Description: "Set a new password using a reset token from email.",
+				Protected:   false,
+			},
+			{
+				Method:      http.MethodPost,
+				Path:        "/api/v1/auth/change-password",
+				Description: "Change the authenticated user's password from settings.",
+				Protected:   true,
+			},
 		},
 	})
 }

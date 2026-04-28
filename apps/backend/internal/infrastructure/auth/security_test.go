@@ -22,6 +22,21 @@ func TestArgon2PasswordVerifierVerifiesPHCHash(t *testing.T) {
 	}
 }
 
+func TestPasswordVerifierHashesWithArgon2(t *testing.T) {
+	verifier := NewPasswordVerifier("auth-secret")
+	hash, err := verifier.Hash("new-secret")
+	if err != nil {
+		t.Fatalf("expected password hash, got %v", err)
+	}
+
+	if !verifier.Verify(hash, "new-secret") {
+		t.Fatal("expected generated password hash to verify")
+	}
+	if verifier.Verify(hash, "wrong") {
+		t.Fatal("expected wrong password to be rejected")
+	}
+}
+
 func TestBetterAuthScryptPasswordVerifierVerifiesLegacyHash(t *testing.T) {
 	hash := testBetterAuthScryptHash("secret")
 

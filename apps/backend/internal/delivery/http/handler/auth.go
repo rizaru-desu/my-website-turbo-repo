@@ -19,9 +19,12 @@ type AuthService interface {
 	Logout(ctx context.Context, token string) error
 	VerifyToken(ctx context.Context, token string) (authusecase.TokenClaims, error)
 	ForgotPassword(ctx context.Context, command authusecase.ForgotPasswordCommand) error
+	ResetPassword(ctx context.Context, command authusecase.ResetPasswordCommand) error
+	ChangePassword(ctx context.Context, command authusecase.ChangePasswordCommand) error
 	SendVerificationEmail(ctx context.Context, command authusecase.SendVerificationEmailCommand) error
 	VerifyEmail(ctx context.Context, command authusecase.VerifyEmailCommand) (authusecase.VerifyEmailResult, error)
-	SetupTOTP(ctx context.Context, userID string) (authusecase.SetupTOTPResult, error)
+	SetupTOTP(ctx context.Context, command authusecase.SetupTOTPCommand) (authusecase.SetupTOTPResult, error)
+	GetTOTPStatus(ctx context.Context, userID string) (authusecase.TOTPStatusResult, error)
 	EnableTOTP(ctx context.Context, command authusecase.EnableTOTPCommand) error
 	DisableTOTP(ctx context.Context, command authusecase.DisableTOTPCommand) error
 	VerifyLoginTOTP(ctx context.Context, command authusecase.VerifyTOTPCommand) (authusecase.LoginResult, error)
@@ -52,6 +55,25 @@ type ForgotPasswordRequest struct {
 	Email string `json:"email"`
 }
 
+type ResetPasswordRequest struct {
+	Email                string `json:"email"`
+	Token                string `json:"token"`
+	Password             string `json:"password"`
+	NewPassword          string `json:"new_password"`
+	NewPasswordCamel     string `json:"newPassword"`
+	ConfirmPassword      string `json:"confirm_password"`
+	ConfirmPasswordCamel string `json:"confirmPassword"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword      string `json:"current_password"`
+	CurrentPasswordCamel string `json:"currentPassword"`
+	NewPassword          string `json:"new_password"`
+	NewPasswordCamel     string `json:"newPassword"`
+	ConfirmPassword      string `json:"confirm_password"`
+	ConfirmPasswordCamel string `json:"confirmPassword"`
+}
+
 type SendVerificationEmailRequest struct {
 	Email            string `json:"email"`
 	CallbackURL      string `json:"callbackURL"`
@@ -64,7 +86,10 @@ type VerifyTOTPRequest struct {
 }
 
 type EnableTOTPRequest struct {
-	Code     string `json:"code"`
+	Code string `json:"code"`
+}
+
+type SetupTOTPRequest struct {
 	Password string `json:"password"`
 }
 
@@ -105,8 +130,11 @@ func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+authPath+"/logout", h.Logout)
 	mux.HandleFunc("GET "+authPath+"/me", h.Me)
 	mux.HandleFunc("POST "+authPath+"/forgot-password", h.ForgotPassword)
+	mux.HandleFunc("POST "+authPath+"/reset-password", h.ResetPassword)
+	mux.HandleFunc("POST "+authPath+"/change-password", h.ChangePassword)
 	mux.HandleFunc("POST "+authPath+"/email-verification", h.SendVerificationEmail)
 	mux.HandleFunc("GET "+authPath+"/verify-email", h.VerifyEmail)
+	mux.HandleFunc("GET "+authPath+"/2fa/status", h.GetTOTPStatus)
 	mux.HandleFunc("POST "+authPath+"/2fa/setup", h.SetupTOTP)
 	mux.HandleFunc("POST "+authPath+"/2fa/enable", h.EnableTOTP)
 	mux.HandleFunc("POST "+authPath+"/2fa/disable", h.DisableTOTP)
@@ -243,6 +271,98 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "if the email exists, a reset link has been sent"})
 }
 
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
+	var payload ResetPasswordRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	email := strings.TrimSpace(payload.Email)
+	token := strings.TrimSpace(payload.Token)
+	password := firstQueryValue(payload.NewPassword, payload.NewPasswordCamel, payload.Password)
+	confirmPassword := firstQueryValue(payload.ConfirmPassword, payload.ConfirmPasswordCamel)
+
+	if email == "" || !strings.Contains(email, "@") || token == "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "valid email and token are required"})
+		return
+	}
+	if confirmPassword != "" && password != confirmPassword {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "passwords do not match"})
+		return
+	}
+
+	err := h.service.ResetPassword(r.Context(), authusecase.ResetPasswordCommand{
+		Email:       email,
+		Token:       token,
+		NewPassword: password,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidToken) || errors.Is(err, authusecase.ErrWeakPassword) {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, ErrorResponse{Error: passwordErrorMessage(err)})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "password has been reset"})
+}
+
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	var payload ChangePasswordRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	currentPassword := firstQueryValue(payload.CurrentPassword, payload.CurrentPasswordCamel)
+	newPassword := firstQueryValue(payload.NewPassword, payload.NewPasswordCamel)
+	confirmPassword := firstQueryValue(payload.ConfirmPassword, payload.ConfirmPasswordCamel)
+	if confirmPassword != "" && newPassword != confirmPassword {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "passwords do not match"})
+		return
+	}
+
+	err = h.service.ChangePassword(r.Context(), authusecase.ChangePasswordCommand{
+		UserID:          claims.UserID,
+		CurrentPassword: currentPassword,
+		NewPassword:     newPassword,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, authusecase.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+		} else if errors.Is(err, authusecase.ErrWeakPassword) {
+			status = http.StatusBadRequest
+		}
+		writeJSON(w, status, ErrorResponse{Error: passwordErrorMessage(err)})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "password has been changed"})
+}
+
 func (h *AuthHandler) SendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	if h.service == nil {
 		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
@@ -360,16 +480,32 @@ func clientIP(r *http.Request) string {
 }
 
 func (h *AuthHandler) SetupTOTP(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
 	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
 		return
 	}
 
-	result, err := h.service.SetupTOTP(r.Context(), claims.UserID)
+	var payload SetupTOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
+		return
+	}
+
+	result, err := h.service.SetupTOTP(r.Context(), authusecase.SetupTOTPCommand{
+		UserID:   claims.UserID,
+		Password: payload.Password,
+	})
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, authusecase.ErrTwoFactorExists) {
+		if errors.Is(err, authusecase.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+		} else if errors.Is(err, authusecase.ErrTwoFactorExists) {
 			status = http.StatusConflict
 		}
 		writeJSON(w, status, ErrorResponse{Error: err.Error()})
@@ -379,7 +515,33 @@ func (h *AuthHandler) SetupTOTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+func (h *AuthHandler) GetTOTPStatus(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
+	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
+		return
+	}
+
+	result, err := h.service.GetTOTPStatus(r.Context(), claims.UserID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to load 2fa status"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (h *AuthHandler) EnableTOTP(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
 	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
@@ -393,9 +555,8 @@ func (h *AuthHandler) EnableTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.service.EnableTOTP(r.Context(), authusecase.EnableTOTPCommand{
-		UserID:   claims.UserID,
-		Code:     strings.TrimSpace(payload.Code),
-		Password: payload.Password,
+		UserID: claims.UserID,
+		Code:   strings.TrimSpace(payload.Code),
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -412,6 +573,11 @@ func (h *AuthHandler) EnableTOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) DisableTOTP(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
 	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
@@ -441,6 +607,11 @@ func (h *AuthHandler) DisableTOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) VerifyLoginTOTP(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
 	var payload VerifyTOTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request payload"})
@@ -470,6 +641,11 @@ func (h *AuthHandler) VerifyLoginTOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) RegenerateBackupCodes(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{Error: "auth service is not configured"})
+		return
+	}
+
 	claims, err := h.service.VerifyToken(r.Context(), sessionTokenFromCookie(r, h.cookie.Name))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid or expired token"})
@@ -523,6 +699,19 @@ func emailVerificationErrorMessage(err error) string {
 		return "failed to send verification email"
 	default:
 		return "failed to verify email"
+	}
+}
+
+func passwordErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, authusecase.ErrInvalidCredentials):
+		return "current password is invalid"
+	case errors.Is(err, authusecase.ErrInvalidToken):
+		return "invalid or expired reset token"
+	case errors.Is(err, authusecase.ErrWeakPassword):
+		return "password must be at least 8 characters"
+	default:
+		return "failed to update password"
 	}
 }
 

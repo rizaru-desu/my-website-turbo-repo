@@ -360,6 +360,13 @@ input {
     @apply grid gap-[9px] mb-[18px] text-left;
   }
 
+  .login-credential-input {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    text-transform: none;
+  }
+
   .field-error {
     @apply m-0 p-2 px-[10px] text-red bg-red/10 leading-[1.55] tracking-[0];
     font-family: var(--font-pixel);
@@ -424,6 +431,42 @@ input {
   .password-rules li::before {
     @apply content-[''] absolute left-0 top-[0.45rem] w-2 h-2 bg-cyan;
     box-shadow: 2px 2px 0 #12131c;
+  }
+
+  .twofa-setup {
+    @apply grid gap-2;
+  }
+
+  .twofa-password-row {
+    @apply mt-4;
+  }
+
+  .twofa-qr {
+    @apply w-[220px] h-[220px] mx-auto mb-4 bg-text;
+    image-rendering: pixelated;
+    box-shadow:
+      0 0 0 4px #282a36,
+      0 0 0 8px #50fa7b,
+      8px 8px 0 #12131c;
+  }
+
+  .twofa-disable-row {
+    @apply mt-5;
+  }
+
+  .backup-code-grid {
+    @apply grid gap-2 my-[18px] p-3 bg-bg-2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    box-shadow: inset 0 0 0 3px #6272a4;
+  }
+
+  .backup-code-grid code {
+    @apply block p-2 text-center text-green bg-panel-deep;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    font-size: 0.85rem;
+    box-shadow: inset 0 0 0 2px rgba(80, 250, 123, 0.24);
   }
 
   .otp-group {
@@ -502,6 +545,14 @@ input {
 
     .login-options {
       @apply items-start flex-col;
+    }
+
+    .twofa-qr {
+      @apply w-[180px] h-[180px];
+    }
+
+    .backup-code-grid {
+      grid-template-columns: 1fr;
     }
   }
 

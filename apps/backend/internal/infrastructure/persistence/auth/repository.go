@@ -121,6 +121,26 @@ func (r *EntCredentialRepository) MarkEmailVerified(ctx context.Context, userID 
 	return err
 }
 
+func (r *EntCredentialRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error {
+	if r.client == nil {
+		return fmt.Errorf("auth database client is not configured")
+	}
+
+	affected, err := r.client.Account.Update().
+		Where(account.UserIDEQ(userID), account.PasswordNotNil()).
+		SetPassword(passwordHash).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("password account not found")
+	}
+
+	return nil
+}
+
 func (r *EntSessionRepository) Create(ctx context.Context, model authusecase.Session) error {
 	if r.client == nil {
 		return fmt.Errorf("auth database client is not configured")
@@ -235,8 +255,15 @@ func (r *EntVerificationRepository) DeleteByIdentifier(ctx context.Context, iden
 		return nil
 	}
 
-	_, err := r.client.Verification.Delete().Where(verification.IdentifierEQ(identifier)).Exec(ctx)
-	return err
+	affected, err := r.client.Verification.Delete().Where(verification.IdentifierEQ(identifier)).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("verification not found")
+	}
+
+	return nil
 }
 
 func (r *EntVerificationRepository) FindByIdentifier(ctx context.Context, identifier string) (string, error) {
