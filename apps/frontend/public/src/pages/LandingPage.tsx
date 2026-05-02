@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   PublicNav,
   PublicFooter,
@@ -214,13 +215,13 @@ export default function LandingPage() {
   const itemsPerPage = 3;
   const totalPages = Math.ceil(testimonials.length / itemsPerPage);
 
-  const nextTestimonial = () => {
+  const nextTestimonial = useCallback(() => {
     setCurrentPage((prev) => (prev + 1) % totalPages);
-  };
+  }, [totalPages]);
 
-  const prevTestimonial = () => {
+  const prevTestimonial = useCallback(() => {
     setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
-  };
+  }, [totalPages]);
 
   // Auto-scroll logic
   useEffect(() => {
@@ -231,7 +232,7 @@ export default function LandingPage() {
     }, 5000); // Change every 5 seconds
 
     return () => clearInterval(interval);
-  }, [isPaused, currentPage]);
+  }, [isPaused, nextTestimonial]);
 
   const currentTestimonials = testimonials.slice(
     currentPage * itemsPerPage,
@@ -508,7 +509,15 @@ export default function LandingPage() {
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        <SectionHeader kicker="~ CHAPTER 04" title="REVIEWS.LOG" />
+        <SectionHeader kicker="~ CHAPTER 04" title="REVIEWS.LOG">
+          <Link
+            to="/testimonials/new"
+            className="pix-btn pix-btn-ghost hover-wiggle"
+            data-testid="leave-review"
+          >
+            + LEAVE A REVIEW
+          </Link>
+        </SectionHeader>
         
         <div className="relative">
           {/* Main Cards Grid */}
