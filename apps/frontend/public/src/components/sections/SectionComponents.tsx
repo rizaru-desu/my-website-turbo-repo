@@ -133,40 +133,67 @@ export function PlaceholderCard({
 }
 
 interface TimelineEntryProps {
-  year: string;
+  period: string;
   role: string;
-  org: string;
-  body: string;
+  company: string;
+  location: string;
+  summary: string;
+  achievements?: string[];
   color: string;
   index: number;
 }
 
 export function TimelineEntry({
-  year,
+  period,
   role,
-  org,
-  body,
+  company,
+  location,
+  summary,
+  achievements,
   color,
   index,
 }: TimelineEntryProps) {
   return (
     <div className="timeline-row">
-      <div className={`timeline-year text-${color}`}>{year}</div>
+      <div className={`timeline-year text-${color}`}>{period}</div>
       <div className="timeline-dot" style={{ background: `var(--color-${color})` }} />
       <div
         className={`card accent-${color} timeline-card`}
         data-testid={`timeline-${index}`}
       >
         <div className="flex justify-between items-start flex-wrap gap-2 mb-2">
-          <div className={`card-title text-${color}`}>{role}</div>
-          <span className="pixel-badge text-line">{org}</span>
+          <div>
+            <div className={`card-title text-${color}`}>{role}</div>
+            <div
+              className="text-muted mt-1"
+              style={{ fontFamily: "var(--font-terminal)", fontSize: "0.85rem" }}
+            >
+              {location}
+            </div>
+          </div>
+          <span className="pixel-badge text-line">{company}</span>
         </div>
         <p
-          className="m-0 text-muted leading-[1.3]"
+          className="m-0 text-muted leading-[1.3] mb-3"
           style={{ fontFamily: "var(--font-terminal)", fontSize: "1rem" }}
         >
-          {body}
+          {summary}
         </p>
+        {achievements && achievements.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {achievements.map((achievement, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className={`text-${color} mt-1`} style={{ fontFamily: "var(--font-pixel)", fontSize: "0.5rem" }}>»</span>
+                <span
+                  className="text-text leading-tight"
+                  style={{ fontFamily: "var(--font-terminal)", fontSize: "0.9rem" }}
+                >
+                  {achievement}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

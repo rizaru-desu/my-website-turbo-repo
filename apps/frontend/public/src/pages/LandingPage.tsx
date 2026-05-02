@@ -58,32 +58,52 @@ const profile = {
 /* ─── Timeline data (maps to experience DB table) ─── */
 const timeline = [
   {
-    year: "2025 →",
+    period: "2025 — PRESENT",
     role: "PRINCIPAL DESIGNER",
-    org: "FREELANCE · TOKYO",
+    company: "FREELANCE",
+    location: "TOKYO, JP",
+    summary: "Leading end-to-end product design & frontend for early-stage SaaS and indie studios. Specialty: retro-flavored modern UIs.",
+    achievements: [
+      "Designed & built a pixel-art design system used across 3 active projects.",
+      "Reduced time-to-market for MVP prototypes by 40% using custom React components.",
+    ],
     c: "purple",
-    body: "Leading end-to-end product design & frontend for early-stage SaaS and indie studios. Specialty: retro-flavored modern UIs.",
   },
   {
-    year: "2022-25",
+    period: "2022 — 2025",
     role: "SENIOR UI/UX DESIGNER",
-    org: "NEBULA LABS",
+    company: "NEBULA LABS",
+    location: "REMOTE",
+    summary: "Owned the design system powering 5 B2B products. Shipped 120+ Figma components, reduced design-dev handoff time by 60%.",
+    achievements: [
+      "Led the redesign of the core dashboard, increasing user retention by 25%.",
+      "Mentored 4 junior designers in atomic design principles and accessibility.",
+    ],
     c: "cyan",
-    body: "Owned the design system powering 5 B2B products. Shipped 120+ Figma components, reduced design-dev handoff time by 60%.",
   },
   {
-    year: "2020-22",
+    period: "2020 — 2022",
     role: "FRONTEND DEVELOPER",
-    org: "PLUMA STUDIO",
+    company: "PLUMA STUDIO",
+    location: "KYOTO, JP",
+    summary: "Built production React + Tailwind interfaces for fintech and creator-economy clients. Obsessed over micro-interactions.",
+    achievements: [
+      "Optimized frontend performance, achieving a 95+ Lighthouse score across all client sites.",
+      "Implemented complex data visualizations using D3.js and SVG animations.",
+    ],
     c: "pink",
-    body: "Built production React + Tailwind interfaces for fintech and creator-economy clients. Obsessed over micro-interactions.",
   },
   {
-    year: "2018-20",
+    period: "2018 — 2020",
     role: "JUNIOR DESIGNER",
-    org: "BYTECRAFT",
+    company: "BYTECRAFT",
+    location: "OSAKA, JP",
+    summary: "Cut my teeth on landing pages, brand systems, and the occasional game jam. Where the pixel love started.",
+    achievements: [
+      "Assisted in the branding of 10+ startup clients.",
+      "Winner of the 2019 Internal Game Jam (UI/UX category).",
+    ],
     c: "green",
-    body: "Cut my teeth on landing pages, brand systems, and the occasional game jam. Where the pixel love started.",
   },
 ];
 
@@ -449,10 +469,12 @@ export default function LandingPage() {
           {timeline.map((t, i) => (
             <TimelineEntry
               key={i}
-              year={t.year}
+              period={t.period}
               role={t.role}
-              org={t.org}
-              body={t.body}
+              company={t.company}
+              location={t.location}
+              summary={t.summary}
+              achievements={t.achievements}
               color={t.c}
               index={i}
             />
