@@ -10,6 +10,7 @@ interface PublicNavProps {
 const defaultLinks = [
   { href: "#about", label: "ABOUT", testId: "nav-about" },
   { href: "#timeline", label: "JOURNEY", testId: "nav-timeline" },
+  { href: "#testimonials", label: "REVIEWS", testId: "nav-testimonials" },
   { href: "#stack", label: "STACK", testId: "nav-stack" },
   { href: "#explore", label: "EXPLORE", testId: "nav-explore" },
   { href: "#contact", label: "CONTACT", testId: "nav-contact" },

@@ -657,6 +657,22 @@ input {
     animation: wiggle 0.25s steps(2) 2;
   }
 
+  /* Pixel Slide Animation */
+  @keyframes pixel-slide {
+    0% {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-pixel-slide {
+    animation: pixel-slide 0.4s steps(4) forwards;
+  }
+
   /* ==================== PIXEL DIVIDER ==================== */
   .pix-divider {
     @apply h-1 my-[18px];

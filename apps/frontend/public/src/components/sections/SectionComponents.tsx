@@ -171,3 +171,73 @@ export function TimelineEntry({
     </div>
   );
 }
+
+interface TestimonialCardProps {
+  name: string;
+  role: string;
+  company?: string;
+  message: string;
+  rating: number;
+  relation: string;
+  color: string;
+  index: number;
+}
+
+export function TestimonialCard({
+  name,
+  role,
+  company,
+  message,
+  rating,
+  relation,
+  color,
+  index,
+}: TestimonialCardProps) {
+  return (
+    <div
+      className={`card accent-${color} flex flex-col h-full`}
+      data-testid={`testimonial-${index}`}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex">
+          {[...Array(5)].map((_, i) => (
+            <span
+              key={i}
+              className={`text-${i < rating ? "yellow" : "line"} mr-1`}
+              style={{ fontFamily: "var(--font-pixel)", fontSize: "0.8rem" }}
+            >
+              ★
+            </span>
+          ))}
+        </div>
+        <span className="pixel-badge text-line" style={{ fontSize: "0.4rem" }}>
+          {relation}
+        </span>
+      </div>
+      <p
+        className="m-0 text-text leading-[1.4] italic mb-4 flex-grow"
+        style={{ fontFamily: "var(--font-terminal)", fontSize: "1rem" }}
+      >
+        "{message}"
+      </p>
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-10 h-10 bg-${color} flex-shrink-0`}
+          style={{
+            boxShadow:
+              "inset 0 3px 0 rgba(255,255,255,0.3), inset 0 -3px 0 rgba(0,0,0,0.3), 0 0 0 3px #282a36",
+          }}
+        />
+        <div>
+          <div className={`card-title text-${color}`}>{name}</div>
+          <div
+            className="text-muted leading-tight"
+            style={{ fontFamily: "var(--font-terminal)", fontSize: "0.85rem" }}
+          >
+            {role} {company && ` @ ${company}`}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

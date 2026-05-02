@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   PublicNav,
   PublicFooter,
@@ -12,6 +13,7 @@ import {
   HighlightCard,
   PlaceholderCard,
   TimelineEntry,
+  TestimonialCard,
 } from "../components";
 
 /* ─── Profile data (maps to profileContent DB table) ─── */
@@ -102,7 +104,140 @@ const stack = [
   },
 ];
 
+/* ─── Testimonials data (maps to testimonial DB table) ─── */
+const testimonials = [
+  {
+    name: "SARAH CHEN",
+    role: "PRODUCT LEAD",
+    company: "NEBULA LABS",
+    message:
+      "Kai has a rare eye for detail. He didn't just build our design system; he gave it a soul. The retro-modern aesthetic he proposed became our most loved feature.",
+    rating: 5,
+    relation: "COLLEAGUE",
+    c: "purple",
+  },
+  {
+    name: "MARCUS JAEGER",
+    role: "FOUNDER",
+    company: "BYTECRAFT",
+    message:
+      "Working with Kai on our landing page was seamless. He bridges the gap between design and code perfectly. Highly recommended for any high-stakes UI work.",
+    rating: 5,
+    relation: "CLIENT",
+    c: "cyan",
+  },
+  {
+    name: "YUKI TANAKA",
+    role: "CREATIVE DIRECTOR",
+    company: "PLUMA STUDIO",
+    message:
+      "The pixel-perfect implementation and attention to micro-interactions Kai brought to our project were outstanding. A true design-engineer hybrid.",
+    rating: 5,
+    relation: "CLIENT",
+    c: "pink",
+  },
+  {
+    name: "ALEX RIVERA",
+    role: "CTO",
+    company: "SYNTH WAVE",
+    message:
+      "Kai delivered a complex dashboard that managed to be both highly functional and visually stunning. His grasp of frontend architecture is top-tier.",
+    rating: 5,
+    relation: "CLIENT",
+    c: "green",
+  },
+  {
+    name: "ELENA ROSSI",
+    role: "SENIOR DESIGNER",
+    company: "PIXEL PERFECT",
+    message:
+      "I've worked with many developers, but Kai is one of the few who truly 'gets' design. He never compromises on the vision while keeping the code clean.",
+    rating: 5,
+    relation: "COLLEAGUE",
+    c: "orange",
+  },
+  {
+    name: "DAVID PARK",
+    role: "MARKETING HEAD",
+    company: "GLITCH INC",
+    message:
+      "Our conversion rates jumped by 40% after the redesign Kai implemented. He knows exactly how to make a brand feel modern yet nostalgic.",
+    rating: 4,
+    relation: "CLIENT",
+    c: "purple",
+  },
+  {
+    name: "MIA WONG",
+    role: "INDIE DEVELOPER",
+    company: "SELF-EMPLOYED",
+    message:
+      "Kai mentored me through my first React project. His ability to explain complex concepts through the lens of game design was a game-changer for me.",
+    rating: 5,
+    relation: "MENTOR",
+    c: "cyan",
+  },
+  {
+    name: "JORDAN SMITH",
+    role: "PRODUCT MANAGER",
+    company: "ARCADE CORE",
+    message:
+      "The attention to detail in the animations and transitions was beyond what we expected. Kai truly lives and breathes the pixel-art aesthetic.",
+    rating: 5,
+    relation: "CLIENT",
+    c: "pink",
+  },
+  {
+    name: "LIAM O'CONNOR",
+    role: "FRONTEND LEAD",
+    company: "TECH FORGE",
+    message:
+      "One of the most reliable engineers I've had the pleasure of working with. Kai's technical skills are only matched by his creative problem-solving.",
+    rating: 5,
+    relation: "COLLEAGUE",
+    c: "green",
+  },
+  {
+    name: "SOPHIE MARTIN",
+    role: "UI ARTIST",
+    company: "DREAM SCAPE",
+    message:
+      "Kai turned my static designs into a living, breathing interface that exceeded all expectations. His passion for the craft is evident in every commit.",
+    rating: 5,
+    relation: "COLLEAGUE",
+    c: "orange",
+  },
+];
+
 export default function LandingPage() {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const itemsPerPage = 3;
+  const totalPages = Math.ceil(testimonials.length / itemsPerPage);
+
+  const nextTestimonial = () => {
+    setCurrentPage((prev) => (prev + 1) % totalPages);
+  };
+
+  const prevTestimonial = () => {
+    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+  };
+
+  // Auto-scroll logic
+  useEffect(() => {
+    if (isPaused) return;
+
+    const interval = setInterval(() => {
+      nextTestimonial();
+    }, 5000); // Change every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [isPaused, currentPage]);
+
+  const currentTestimonials = testimonials.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
+
   return (
     <div className="public-shell" data-testid="public-shell">
       {/* ========== NAVBAR ========== */}
@@ -365,10 +500,98 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ========== TESTIMONIALS ========== */}
+      <section
+        className="section"
+        id="testimonials"
+        data-testid="section-testimonials"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        <SectionHeader kicker="~ CHAPTER 04" title="REVIEWS.LOG" />
+        
+        <div className="relative">
+          {/* Main Cards Grid */}
+          <div 
+            key={currentPage} 
+            className="grid grid-cols-1 md:grid-cols-3 gap-7 min-h-[320px] animate-pixel-slide"
+          >
+            {currentTestimonials.map((t, i) => (
+              <div key={currentPage * itemsPerPage + i} className="flex flex-col h-full">
+                <TestimonialCard
+                  name={t.name}
+                  role={t.role}
+                  company={t.company}
+                  message={t.message}
+                  rating={t.rating}
+                  relation={t.relation}
+                  color={t.c}
+                  index={currentPage * itemsPerPage + i}
+                />
+              </div>
+            ))}
+            {/* Empty placeholders to maintain grid if last page has fewer than 3 items */}
+            {currentTestimonials.length < itemsPerPage && 
+              [...Array(itemsPerPage - currentTestimonials.length)].map((_, i) => (
+                <div key={`empty-${i}`} className="hidden md:block opacity-0 pointer-events-none">
+                  <div className="card h-full" />
+                </div>
+              ))
+            }
+          </div>
+
+          {/* Carousel Controls */}
+          <div className="flex justify-between items-center mt-10 px-4">
+            <button
+              onClick={prevTestimonial}
+              className="pix-btn pix-btn-ghost hover-wiggle"
+              aria-label="Previous page"
+            >
+              &lt; PREV
+            </button>
+
+            <div className="flex gap-3">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`w-3 h-3 ${
+                    currentPage === i ? "bg-purple" : "bg-panel"
+                  }`}
+                  style={{
+                    boxShadow: currentPage === i 
+                      ? "inset 0 2px 0 rgba(255,255,255,0.3), 0 0 0 2px #282a36" 
+                      : "inset 0 -2px 0 rgba(0,0,0,0.3), 0 0 0 2px #282a36",
+                    transition: "background-color 0.2s steps(2)"
+                  }}
+                  aria-label={`Go to page ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={nextTestimonial}
+              className="pix-btn pix-btn-ghost hover-wiggle"
+              aria-label="Next page"
+            >
+              NEXT &gt;
+            </button>
+          </div>
+
+          {/* Page Counter */}
+          <div 
+            className="text-center mt-4 text-line"
+            style={{ fontFamily: "var(--font-pixel)", fontSize: "0.48rem" }}
+          >
+            PAGE {currentPage + 1} OF {totalPages}
+          </div>
+        </div>
+      </section>
+
       {/* ========== EXPLORE ========== */}
       <section className="section" id="explore" data-testid="section-explore">
         <SectionHeader
-          kicker="~ CHAPTER 04"
+          kicker="~ CHAPTER 05"
           title="EXPLORE.~"
           subtitle="Dedicated pages below are still loading in the next update."
         />

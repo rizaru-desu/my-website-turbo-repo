@@ -3,4 +3,5 @@ export {
   HighlightCard,
   PlaceholderCard,
   TimelineEntry,
+  TestimonialCard,
 } from "./SectionComponents";
