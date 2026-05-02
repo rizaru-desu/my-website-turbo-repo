@@ -146,6 +146,21 @@ export const Sword = () => (
   </svg>
 );
 
+export const IconMedal = () => (
+  <svg
+    viewBox="0 0 16 16"
+    width="24"
+    height="24"
+    shapeRendering="crispEdges"
+    aria-hidden="true"
+  >
+    <rect x="5" y="1" width="6" height="4" fill="#ff5555" />
+    <rect x="6" y="5" width="4" height="2" fill="#ff5555" />
+    <rect x="5" y="7" width="6" height="6" fill="#f1fa8c" />
+    <rect x="7" y="9" width="2" height="2" fill="#ffb86c" />
+  </svg>
+);
+
 export const NavBrandLogo = () => (
   <svg
     viewBox="0 0 16 16"

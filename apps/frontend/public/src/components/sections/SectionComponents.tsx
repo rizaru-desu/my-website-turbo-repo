@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Sword } from "../icons";
 
 interface SectionHeaderProps {
@@ -199,6 +200,63 @@ export function TimelineEntry({
   );
 }
 
+interface CertificateCardProps {
+  name: string;
+  issuer: string;
+  year: string;
+  link: string;
+  color: string;
+  featured?: boolean;
+}
+
+export function CertificateCard({
+  name,
+  issuer,
+  year,
+  link,
+  color,
+  featured,
+}: CertificateCardProps) {
+  return (
+    <div className={`card accent-${color} relative h-full flex flex-col`}>
+      <div className="flex justify-between items-start mb-2">
+        <span
+          className={`text-${color} leading-none`}
+          style={{ fontFamily: "var(--font-pixel)", fontSize: "0.48rem" }}
+        >
+          {year}
+        </span>
+        {featured && (
+          <span className="text-yellow" style={{ fontSize: "0.8rem" }}>★</span>
+        )}
+      </div>
+      <div
+        className="card-title mb-1 leading-tight"
+        style={{ fontSize: "1.1rem" }}
+      >
+        {name}
+      </div>
+      <div
+        className="text-muted mb-4"
+        style={{ fontFamily: "var(--font-terminal)", fontSize: "0.9rem" }}
+      >
+        {issuer}
+      </div>
+      <div className="mt-auto">
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`pix-btn pix-btn-ghost text-[0.48rem] py-1 px-2 hover-wiggle w-full block text-center`}
+          style={{ fontFamily: "var(--font-pixel)" }}
+        >
+          VERIFY_CREDENTIAL
+        </a>
+      </div>
+    </div>
+  );
+}
+
 interface TestimonialCardProps {
   name: string;
   role: string;
@@ -264,6 +322,175 @@ export function TestimonialCard({
             {role} {company && ` @ ${company}`}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface BlogCardProps {
+  title: string;
+  excerpt: string;
+  category: string;
+  publishDate: string;
+  readingTime: string;
+  slug: string;
+  color: string;
+  index: number;
+}
+
+export function BlogCard({
+  title,
+  excerpt,
+  category,
+  publishDate,
+  readingTime,
+  slug,
+  color,
+  index,
+}: BlogCardProps) {
+  return (
+    <div
+      className={`card accent-${color} flex flex-col h-full blog-card-hover`}
+      data-testid={`blog-post-${index}`}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <span
+          className={`text-${color}`}
+          style={{ fontFamily: "var(--font-pixel)", fontSize: "0.48rem" }}
+        >
+          {publishDate} // {category}
+        </span>
+        <span
+          className="text-line"
+          style={{ fontFamily: "var(--font-pixel)", fontSize: "0.4rem" }}
+        >
+          {readingTime}
+        </span>
+      </div>
+
+      <div
+        className="card-title mb-2 text-text"
+        style={{ fontSize: "1.2rem" }}
+      >
+        {title}
+      </div>
+
+      <p
+        className="m-0 text-muted leading-[1.35] mb-5 flex-grow"
+        style={{ fontFamily: "var(--font-terminal)", fontSize: "0.95rem" }}
+      >
+        {excerpt}
+      </p>
+
+      <Link
+        to={`/blog/${slug}`}
+        className={`pix-btn pix-btn-ghost text-[0.48rem] py-2 px-3 hover-wiggle inline-flex items-center gap-2 self-start`}
+        style={{ fontFamily: "var(--font-pixel)" }}
+      >
+        READ_ENTRY <span style={{ fontSize: "0.6rem" }}>»</span>
+      </Link>
+    </div>
+  );
+}
+
+interface ProjectCardProps {
+  title: string;
+  summary: string;
+  category: string;
+  year: string;
+  tags: string[];
+  projectUrl?: string;
+  githubUrl?: string;
+  color: string;
+  index: number;
+}
+
+export function ProjectCard({
+  title,
+  summary,
+  category,
+  year,
+  tags,
+  projectUrl,
+  githubUrl,
+  color,
+  index,
+}: ProjectCardProps) {
+  return (
+    <div
+      className={`card accent-${color} flex flex-col h-full project-card-hover`}
+      data-testid={`project-${index}`}
+    >
+      <div className="flex justify-between items-start mb-3">
+        <span
+          className={`text-${color}`}
+          style={{ fontFamily: "var(--font-pixel)", fontSize: "0.48rem" }}
+        >
+          {year} // {category}
+        </span>
+        <div className="flex gap-2">
+          {githubUrl && (
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-text transition-colors"
+              aria-label="GitHub Repository"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+            </a>
+          )}
+          {projectUrl && (
+            <a
+              href={projectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-text transition-colors"
+              aria-label="Live Demo"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                <path d="M11 3H5a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V5a2 2 0 00-2-2zM5 4h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
+                <path d="M10.5 8.5l-3 2V6.5l3 2z" />
+              </svg>
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div
+        className="card-title mb-2 text-text"
+        style={{ fontSize: "1.2rem" }}
+      >
+        {title}
+      </div>
+
+      <p
+        className="m-0 text-muted leading-[1.35] mb-4 flex-grow"
+        style={{ fontFamily: "var(--font-terminal)", fontSize: "0.95rem" }}
+      >
+        {summary}
+      </p>
+
+      <div className="flex flex-wrap gap-2 mt-auto">
+        {tags.slice(0, 3).map((tag) => (
+          <span
+            key={tag}
+            className="pixel-badge text-line"
+            style={{ fontSize: "0.4rem", padding: "2px 6px" }}
+          >
+            {tag.toUpperCase()}
+          </span>
+        ))}
+        {tags.length > 3 && (
+          <span
+            className="text-line"
+            style={{ fontFamily: "var(--font-pixel)", fontSize: "0.48rem" }}
+          >
+            +{tags.length - 3}
+          </span>
+        )}
       </div>
     </div>
   );
