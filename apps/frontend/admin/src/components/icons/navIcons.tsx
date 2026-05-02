@@ -86,3 +86,13 @@ export const IconCog = ({ color = "#bdc0cc" }: IconProps) => (
     <rect x="6" y="6" width="4" height="4" fill="#282a36" />
   </Icon>
 );
+
+export const IconAbout = ({ color = "#ffb86c" }: IconProps) => (
+  <Icon>
+    <rect x="6" y="1" width="4" height="4" fill={color} />
+    <rect x="5" y="5" width="6" height="3" fill={color} />
+    <rect x="3" y="8" width="10" height="5" fill={color} />
+    <rect x="7" y="2" width="2" height="2" fill="#282a36" />
+  </Icon>
+);
+

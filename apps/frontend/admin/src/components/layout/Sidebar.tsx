@@ -7,6 +7,7 @@ type PageKey =
   | "skills"
   | "messages"
   | "analytics"
+  | "about"
   | "settings";
 
 type SidebarProps = {

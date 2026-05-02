@@ -21,6 +21,7 @@ import {
   ForgotPasswordPage,
   ResetPasswordPage,
   SettingsPage,
+  AboutSettingsPage,
 } from "./pages";
 
 function AppRoutes() {
@@ -75,6 +76,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <ProtectedRoute>
+                <AboutSettingsPage />
               </ProtectedRoute>
             }
           />

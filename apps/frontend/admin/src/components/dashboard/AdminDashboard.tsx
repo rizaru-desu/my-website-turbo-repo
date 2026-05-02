@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppLayout } from "../layout";
 import { navItems, pageMeta } from "../../constants/navigation";
+import XpBar from "./XpBar";
 
 type PageKey =
   | "dashboard"
@@ -11,6 +12,7 @@ type PageKey =
   | "skills"
   | "messages"
   | "analytics"
+  | "about"
   | "settings";
 
 type IconProps = {
@@ -636,8 +638,10 @@ const Skills = () => (
     <div className="cms-card accent-pink" data-testid="skills-card">
       <div className="card-title-row">
         <div className="card-title">&gt; CHARACTER SHEET</div>
-        <span className="pixel-badge live">LVL 42</span>
       </div>
+      {/* XP Bar - auto-calculated from projects & posts */}
+      <XpBar projects={projects} posts={posts} name="KAI" />
+      <div className="pix-divider" />
       {skills.map((skill) => (
         <div className="skill-row" key={skill.name}>
           <div className="top">
@@ -855,6 +859,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const handleNavigate = (newPage: PageKey) => {
     if (newPage === "settings") {
       navigate("/settings");
+    } else if (newPage === "about") {
+      navigate("/about");
     } else {
       setPage(newPage);
     }

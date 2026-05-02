@@ -126,6 +126,10 @@ export default function SettingsPage() {
 
   const handleNavigate = (newPage: PageKey) => {
     if (newPage === "settings") return;
+    if (newPage === "about") {
+      navigate("/about");
+      return;
+    }
     navigate("/dashboard", { state: { initialPage: newPage } });
   };
 

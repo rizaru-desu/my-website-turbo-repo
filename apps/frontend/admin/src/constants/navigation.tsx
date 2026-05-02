@@ -6,6 +6,7 @@ import {
   IconStar,
   IconNavMail,
   IconChart,
+  IconAbout,
   IconCog,
 } from "../components/icons/navIcons";
 
@@ -16,6 +17,7 @@ export const navItems: NavItem[] = [
   { key: "skills", label: "SKILLS", icon: <IconStar /> },
   { key: "messages", label: "MESSAGES", icon: <IconNavMail /> },
   { key: "analytics", label: "ANALYTICS", icon: <IconChart /> },
+  { key: "about", label: "ABOUT", icon: <IconAbout /> },
   { key: "settings", label: "SETTINGS", icon: <IconCog /> },
 ];
 
@@ -49,6 +51,11 @@ export const pageMeta: Record<PageKey, PageMeta> = {
     crumb: "HOME / ANALYTICS",
     title: "ANALYTICS",
     sub: "Traffic, sources, and campaign performance.",
+  },
+  about: {
+    crumb: "HOME / ABOUT",
+    title: "ABOUT.TXT",
+    sub: "Manage your public profile, bio, social links, and highlight stats.",
   },
   settings: {
     crumb: "HOME / SETTINGS",

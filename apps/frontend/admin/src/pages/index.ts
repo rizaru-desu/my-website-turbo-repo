@@ -1,5 +1,6 @@
 import { lazy } from "react";
 
+export const AboutSettingsPage = lazy(() => import("./AboutSettingsPage"));
 export const DashboardPage = lazy(() => import("./DashboardPage"));
 export const ForgotPasswordPage = lazy(() => import("./ForgotPasswordPage"));
 export const LoginPage = lazy(() => import("./LoginPage"));

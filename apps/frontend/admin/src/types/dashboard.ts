@@ -5,6 +5,7 @@ export type PageKey =
   | "skills"
   | "messages"
   | "analytics"
+  | "about"
   | "settings";
 
 export interface IconProps {
