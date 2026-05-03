@@ -1,4 +1,7 @@
-export { default as LandingPage } from "./LandingPage";
-export { default as TestimonialFormPage } from "./TestimonialFormPage";
-export { default as BlogListPage } from "./BlogListPage";
-export { default as BlogDetailPage } from "./BlogDetailPage";
+import { lazy } from "react";
+
+export const LandingPage = lazy(() => import("./LandingPage"));
+export const TestimonialFormPage = lazy(() => import("./TestimonialFormPage"));
+export const BlogListPage = lazy(() => import("./BlogListPage"));
+export const BlogDetailPage = lazy(() => import("./BlogDetailPage"));
+

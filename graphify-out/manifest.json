@@ -220,16 +220,24 @@
     "hash": "3726af7ac36867943115bf1f9864acdf"
   },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/App.tsx": {
-    "mtime": 1777756324.867962,
-    "hash": "38cb8e9b406f9999a6271b6c3a514d16"
+    "mtime": 1777795085.0983925,
+    "hash": "a7d1a300a071b3a87eaae304e78fa6a7"
   },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/main.tsx": {
     "mtime": 1777657196.4100544,
     "hash": "4d3c13de43dc9f2de804f38e5ca20fd1"
   },
+  "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/components/SuspenseBoundary.tsx": {
+    "mtime": 1777795071.4552336,
+    "hash": "e91e9efa61f229dc3eb1be598b6a2d89"
+  },
+  "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/components/RouteErrorBoundary.tsx": {
+    "mtime": 1777795059.5146532,
+    "hash": "33b5715458a27103ddbb80c3ce72b39e"
+  },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/components/index.ts": {
-    "mtime": 1777657295.4882956,
-    "hash": "9a350a814a909b928c597aeffd77c44b"
+    "mtime": 1777795079.610727,
+    "hash": "129f7217adc326c46b4b5b41adc18e99"
   },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/components/sections/SectionComponents.tsx": {
     "mtime": 1777756209.3859792,
@@ -272,8 +280,8 @@
     "hash": "d50d10f55b66c151c391af6e03c9c803"
   },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/pages/index.ts": {
-    "mtime": 1777756319.8540225,
-    "hash": "ff817ea73b3888aebd02aad3bfa4ad6a"
+    "mtime": 1777795051.6489196,
+    "hash": "99fecc7c0dfa6d07e0c71c842a34d6df"
   },
   "/Users/rizal.achmad/Protection/personal/fullstack/portofolio-lightweight/apps/frontend/public/src/pages/BlogListPage.tsx": {
     "mtime": 1777756301.9323335,

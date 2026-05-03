@@ -351,6 +351,9 @@ const COLORS = ["purple", "cyan", "pink", "green", "orange", "yellow"];
 export default function LandingPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [scrollY, setScrollY] = useState(0);
+
   const itemsPerPage = 3;
   const totalPages = Math.ceil(testimonials.length / itemsPerPage);
 
@@ -368,6 +371,28 @@ export default function LandingPage() {
     items: skills.filter(s => s.category === cat),
     color: COLORS[i % COLORS.length]
   }));
+
+  // Parallax listeners
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({
+        x: (e.clientX / window.innerWidth - 0.5) * 20,
+        y: (e.clientY / window.innerHeight - 0.5) * 20,
+      });
+    };
+
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   // Auto-scroll logic
   useEffect(() => {
@@ -458,7 +483,10 @@ export default function LandingPage() {
           </div>
 
           <div className="hero-right">
-            <div className="avatar-frame">
+            <div 
+              className="avatar-frame transition-transform duration-300 ease-out"
+              style={{ transform: `translate(${mousePos.x * -0.5}px, ${mousePos.y * -0.5}px)` }}
+            >
               <div className="avatar-inner">
                 <HeroAvatar />
               </div>
@@ -501,12 +529,22 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Floating pixel coins */}
-            <div className="coin c1 bob" />
-            <div className="coin c2 bob" />
-            <div className="coin c3 bob" />
+            {/* Floating pixel coins with Mouse + Scroll Parallax */}
+            <div 
+              className="coin c1 bob transition-transform duration-200 ease-out" 
+              style={{ transform: `translate(${mousePos.x * 1.5}px, ${mousePos.y * 1.5 - scrollY * 0.1}px)` }}
+            />
+            <div 
+              className="coin c2 bob transition-transform duration-300 ease-out" 
+              style={{ transform: `translate(${mousePos.x * -2}px, ${mousePos.y * -2 - scrollY * 0.15}px)` }}
+            />
+            <div 
+              className="coin c3 bob transition-transform duration-500 ease-out" 
+              style={{ transform: `translate(${mousePos.x * 1}px, ${mousePos.y * 1 - scrollY * 0.05}px)` }}
+            />
           </div>
         </div>
+
 
         {/* Highlights strip */}
         <div className="highlight-strip">
@@ -843,6 +881,17 @@ export default function LandingPage() {
               index={i}
             />
           ))}
+        </div>
+
+        <div className="mt-12 flex justify-center">
+          <Link
+            to="/blog"
+            className="pix-btn hover-wiggle inline-flex items-center gap-2"
+            style={{ backgroundColor: "var(--purple)", color: "white" }}
+            data-testid="read-more-blog"
+          >
+            READ MORE TRANSMISSIONS »
+          </Link>
         </div>
       </section>
 
